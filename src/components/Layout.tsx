@@ -23,7 +23,8 @@ import {
   User, 
   LogOut,
   Bell,
-  Home
+  Home,
+  MessageCircle
 } from 'lucide-react';
 import { NavLink, useNavigate } from 'react-router-dom';
 
@@ -57,50 +58,66 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
   const getRoleBadgeColor = (role: string) => {
     switch (role) {
-      case 'admin': return 'bg-red-600';
-      case 'partner': return 'bg-yellow-600';
-      case 'employee': return 'bg-green-600';
-      default: return 'bg-gray-600';
+      case 'admin': return 'bg-gradient-to-r from-red-500 to-red-600 text-white';
+      case 'partner': return 'bg-gradient-to-r from-amber-500 to-amber-600 text-white';
+      case 'employee': return 'bg-gradient-to-r from-emerald-500 to-emerald-600 text-white';
+      default: return 'bg-gradient-to-r from-gray-500 to-gray-600 text-white';
     }
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-800">
-      {/* Top Navigation */}
-      <nav className="bg-white/10 backdrop-blur-md border-b border-white/20 sticky top-0 z-40">
+    <div className="min-h-screen bg-gradient-to-br from-[#e0f7fa] via-[#f0f4ff] to-[#ffffff]">
+      {/* Premium Top Navigation */}
+      <nav className="glass-header sticky top-0 z-40">
         <div className="px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16">
             <div className="flex items-center">
               <Button
                 onClick={() => setSidebarOpen(!sidebarOpen)}
-                className="p-2 rounded-md text-white hover:bg-white/10 lg:hidden"
+                className="p-2 rounded-xl text-gray-700 hover:bg-white/50 lg:hidden transition-all duration-200"
                 variant="ghost"
               >
                 {sidebarOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
               </Button>
               
               <div className="flex items-center ml-4 lg:ml-0">
-                <Dumbbell className="h-8 w-8 text-blue-400 mr-3" />
-                <h1 className="text-xl font-bold text-white">RangeFitGym</h1>
+                <div className="p-2 rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 shadow-lg">
+                  <Dumbbell className="h-8 w-8 text-white" />
+                </div>
+                <div className="ml-3">
+                  <h1 className="text-xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent">
+                    RangeFitGym
+                  </h1>
+                  <p className="text-xs text-gray-500 font-medium">Premium CRM</p>
+                </div>
               </div>
             </div>
 
             <div className="flex items-center space-x-4">
-              <Button variant="ghost" className="text-white hover:bg-white/10 p-2">
+              <Button variant="ghost" className="text-gray-700 hover:bg-white/50 p-2 rounded-xl relative">
                 <Bell className="h-5 w-5" />
+                <span className="absolute -top-1 -right-1 h-3 w-3 bg-red-500 rounded-full"></span>
+              </Button>
+
+              <Button variant="ghost" className="text-gray-700 hover:bg-white/50 p-2 rounded-xl">
+                <MessageCircle className="h-5 w-5" />
               </Button>
               
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="flex items-center space-x-2 text-white hover:bg-white/10">
-                    <User className="h-5 w-5" />
-                    <span className="hidden md:block">{user?.name}</span>
-                    <Badge className={`${getRoleBadgeColor(user?.role || '')} text-white text-xs`}>
-                      {user?.role}
-                    </Badge>
+                  <Button variant="ghost" className="flex items-center space-x-3 text-gray-700 hover:bg-white/50 rounded-xl px-4">
+                    <div className="p-1.5 rounded-lg bg-gradient-to-r from-blue-500 to-purple-500">
+                      <User className="h-4 w-4 text-white" />
+                    </div>
+                    <div className="hidden md:block text-left">
+                      <p className="text-sm font-semibold">{user?.name}</p>
+                      <Badge className={`${getRoleBadgeColor(user?.role || '')} text-xs`}>
+                        {user?.role}
+                      </Badge>
+                    </div>
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56 bg-white/95 backdrop-blur-md">
+                <DropdownMenuContent align="end" className="w-56 glass-card border-white/40">
                   <DropdownMenuItem className="flex items-center">
                     <User className="mr-2 h-4 w-4" />
                     <span>{user?.name}</span>
@@ -118,19 +135,19 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       </nav>
 
       <div className="flex">
-        {/* Sidebar */}
-        <div className={`${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0 fixed lg:static inset-y-0 left-0 z-30 w-64 bg-white/10 backdrop-blur-md border-r border-white/20 transition-transform duration-300 ease-in-out`}>
-          <div className="flex flex-col h-full pt-5 pb-4 overflow-y-auto">
-            <nav className="mt-5 flex-1 px-2 space-y-1">
+        {/* Premium Sidebar */}
+        <div className={`${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0 fixed lg:static inset-y-0 left-0 z-30 w-64 glass-sidebar transition-transform duration-300 ease-in-out`}>
+          <div className="flex flex-col h-full pt-6 pb-4 overflow-y-auto">
+            <nav className="mt-6 flex-1 px-4 space-y-2">
               {filteredNavItems.map((item) => (
                 <NavLink
                   key={item.name}
                   to={item.path}
                   className={({ isActive }) =>
-                    `group flex items-center px-2 py-2 text-sm font-medium rounded-md transition-colors ${
+                    `group flex items-center px-4 py-3 text-sm font-medium rounded-xl transition-all duration-200 ${
                       isActive
-                        ? 'bg-white/20 text-white border-r-2 border-blue-400'
-                        : 'text-blue-100 hover:bg-white/10 hover:text-white'
+                        ? 'bg-white/80 text-blue-700 shadow-lg shadow-blue-500/20 border border-blue-200/50'
+                        : 'text-gray-700 hover:bg-white/50 hover:text-blue-600'
                     }`
                   }
                   onClick={() => setSidebarOpen(false)}
@@ -154,7 +171,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       {/* Mobile Sidebar Overlay */}
       {sidebarOpen && (
         <div
-          className="fixed inset-0 z-20 bg-black/50 lg:hidden"
+          className="fixed inset-0 z-20 bg-black/20 lg:hidden backdrop-blur-sm"
           onClick={() => setSidebarOpen(false)}
         />
       )}

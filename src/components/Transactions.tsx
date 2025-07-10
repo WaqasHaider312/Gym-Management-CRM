@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -25,14 +24,18 @@ import {
   Plus, 
   IndianRupee,
   Calendar,
-  Filter
+  Filter,
+  MessageCircle
 } from 'lucide-react';
 import { useAuth } from './AuthContext';
+import { whatsappService } from '@/services/whatsappService';
+import { toast } from '@/hooks/use-toast';
 
 interface Transaction {
   id: string;
   memberId: string;
   memberName: string;
+  memberPhone: string;
   amount: number;
   feeType: string;
   paymentMethod: string;
@@ -47,12 +50,13 @@ const Transactions = () => {
   const [feeTypeFilter, setFeeTypeFilter] = useState('all');
   const [paymentMethodFilter, setPaymentMethodFilter] = useState('all');
 
-  // Mock data
+  // Mock data - same as before
   const transactions: Transaction[] = [
     {
       id: '1',
       memberId: 'M001',
       memberName: 'John Doe',
+      memberPhone: '+919876543210',
       amount: 3000,
       feeType: 'Strength',
       paymentMethod: 'Cash',
@@ -64,6 +68,7 @@ const Transactions = () => {
       id: '2',
       memberId: 'M002', 
       memberName: 'Sarah Wilson',
+      memberPhone: '+919876543211',
       amount: 5000,
       feeType: 'Cardio + Strength',
       paymentMethod: 'Online',
@@ -75,6 +80,7 @@ const Transactions = () => {
       id: '3',
       memberId: 'M003',
       memberName: 'Mike Johnson',
+      memberPhone: '+919876543212',
       amount: 2500,
       feeType: 'Cardio',
       paymentMethod: 'Cash',
@@ -86,6 +92,7 @@ const Transactions = () => {
       id: '4',
       memberId: 'M004',
       memberName: 'Emma Brown',
+      memberPhone: '+919876543213',
       amount: 8000,
       feeType: 'Personal training',
       paymentMethod: 'Online',
@@ -131,20 +138,50 @@ const Transactions = () => {
 
   const totalAmount = filteredTransactions.reduce((sum, transaction) => sum + transaction.amount, 0);
 
+  const handleAddTransaction = async () => {
+    // Demo: Simulate adding a transaction and sending WhatsApp
+    const newTransaction = {
+      id: 'T' + Date.now(),
+      memberName: 'Demo Member',
+      memberPhone: '+919999999999',
+      amount: 3000,
+      feeType: 'Monthly Fee',
+      paymentMethod: 'Cash',
+      date: new Date().toISOString().split('T')[0],
+      addedBy: user?.name || 'Admin'
+    };
+
+    try {
+      // In a real app, you would save to database first
+      await whatsappService.sendPaymentConfirmation(newTransaction);
+      
+      toast({
+        title: "Transaction Added!",
+        description: "Payment confirmation sent via WhatsApp",
+      });
+    } catch (error) {
+      toast({
+        title: "Transaction Added",
+        description: "But WhatsApp notification failed to send",
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-white mb-2 flex items-center">
-            <CreditCard className="mr-3 h-8 w-8" />
+          <h1 className="text-3xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent mb-2 flex items-center">
+            <CreditCard className="mr-3 h-8 w-8 text-blue-600" />
             Transactions
           </h1>
-          <p className="text-blue-200">
-            Manage member payments and fee collections
+          <p className="text-gray-600">
+            Manage member payments with automated WhatsApp confirmations
           </p>
         </div>
-        <Button className="mt-4 sm:mt-0 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700">
+        <Button onClick={handleAddTransaction} className="mt-4 sm:mt-0 premium-button">
           <Plus className="mr-2 h-4 w-4" />
           Add Transaction
         </Button>
@@ -152,43 +189,43 @@ const Transactions = () => {
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card className="bg-white/10 backdrop-blur-md border-white/20">
+        <Card className="glass-card border-white/40">
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-blue-200 text-sm">Total Transactions</p>
-                <p className="text-2xl font-bold text-white">{filteredTransactions.length}</p>
+                <p className="text-gray-600 text-sm font-medium">Total Transactions</p>
+                <p className="text-3xl font-bold text-gray-800">{filteredTransactions.length}</p>
               </div>
-              <div className="bg-blue-500/20 p-3 rounded-lg">
-                <CreditCard className="h-6 w-6 text-blue-400" />
+              <div className="p-3 rounded-xl bg-gradient-to-r from-blue-500 to-blue-600 shadow-lg">
+                <CreditCard className="h-6 w-6 text-white" />
               </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="bg-white/10 backdrop-blur-md border-white/20">
+        <Card className="glass-card border-white/40">
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-blue-200 text-sm">Total Amount</p>
-                <p className="text-2xl font-bold text-white">₹{totalAmount.toLocaleString('en-IN')}</p>
+                <p className="text-gray-600 text-sm font-medium">Total Amount</p>
+                <p className="text-3xl font-bold text-gray-800">₹{totalAmount.toLocaleString('en-IN')}</p>
               </div>
-              <div className="bg-green-500/20 p-3 rounded-lg">
-                <IndianRupee className="h-6 w-6 text-green-400" />
+              <div className="p-3 rounded-xl bg-gradient-to-r from-green-500 to-green-600 shadow-lg">
+                <IndianRupee className="h-6 w-6 text-white" />
               </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="bg-white/10 backdrop-blur-md border-white/20">
+        <Card className="glass-card border-white/40">
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-blue-200 text-sm">This Month</p>
-                <p className="text-2xl font-bold text-white">{filteredTransactions.length}</p>
+                <p className="text-gray-600 text-sm font-medium">WhatsApp Sent</p>
+                <p className="text-3xl font-bold text-gray-800">{filteredTransactions.length}</p>
               </div>
-              <div className="bg-purple-500/20 p-3 rounded-lg">
-                <Calendar className="h-6 w-6 text-purple-400" />
+              <div className="p-3 rounded-xl bg-gradient-to-r from-purple-500 to-purple-600 shadow-lg">
+                <MessageCircle className="h-6 w-6 text-white" />
               </div>
             </div>
           </CardContent>
@@ -196,23 +233,23 @@ const Transactions = () => {
       </div>
 
       {/* Filters */}
-      <Card className="bg-white/10 backdrop-blur-md border-white/20">
+      <Card className="glass-card border-white/40">
         <CardContent className="pt-6">
           <div className="flex flex-col sm:flex-row gap-4">
             <div className="flex-1">
               <div className="relative">
-                <Search className="absolute left-3 top-3 h-4 w-4 text-blue-300" />
+                <Search className="absolute left-3 top-3 h-4 w-4 text-gray-500" />
                 <Input
                   placeholder="Search by member name or ID..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10 bg-white/10 border-white/20 text-white placeholder:text-blue-200"
+                  className="pl-10 bg-white/70 border-white/60 text-gray-800 placeholder:text-gray-500"
                 />
               </div>
             </div>
             
             <Select value={feeTypeFilter} onValueChange={setFeeTypeFilter}>
-              <SelectTrigger className="w-[180px] bg-white/10 border-white/20 text-white">
+              <SelectTrigger className="w-[180px] bg-white/70 border-white/60 text-gray-800">
                 <SelectValue placeholder="Filter by fee type" />
               </SelectTrigger>
               <SelectContent className="bg-white/95 backdrop-blur-md">
@@ -225,7 +262,7 @@ const Transactions = () => {
             </Select>
 
             <Select value={paymentMethodFilter} onValueChange={setPaymentMethodFilter}>
-              <SelectTrigger className="w-[180px] bg-white/10 border-white/20 text-white">
+              <SelectTrigger className="w-[180px] bg-white/70 border-white/60 text-gray-800">
                 <SelectValue placeholder="Payment method" />
               </SelectTrigger>
               <SelectContent className="bg-white/95 backdrop-blur-md">
@@ -239,15 +276,15 @@ const Transactions = () => {
       </Card>
 
       {/* Transactions Table */}
-      <Card className="bg-white/10 backdrop-blur-md border-white/20">
+      <Card className="glass-card border-white/40">
         <CardHeader>
-          <CardTitle className="text-white">
+          <CardTitle className="text-gray-800">
             Transaction History ({filteredTransactions.length})
           </CardTitle>
-          <CardDescription className="text-blue-200">
+          <CardDescription className="text-gray-600">
             {user?.role === 'employee' ? 
-              'Your transaction records' : 
-              'All member transactions and payments'
+              'Your transaction records with WhatsApp confirmations' : 
+              'All member transactions with automated notifications'
             }
           </CardDescription>
         </CardHeader>
@@ -256,34 +293,34 @@ const Transactions = () => {
             <Table>
               <TableHeader>
                 <TableRow className="border-white/20">
-                  <TableHead className="text-blue-200">Member</TableHead>
-                  <TableHead className="text-blue-200">Amount</TableHead>
-                  <TableHead className="text-blue-200">Fee Type</TableHead>
-                  <TableHead className="text-blue-200">Payment Method</TableHead>
-                  <TableHead className="text-blue-200">Date</TableHead>
-                  <TableHead className="text-blue-200">Added By</TableHead>
-                  <TableHead className="text-blue-200">Notes</TableHead>
+                  <TableHead className="text-gray-600">Member</TableHead>
+                  <TableHead className="text-gray-600">Amount</TableHead>
+                  <TableHead className="text-gray-600">Fee Type</TableHead>
+                  <TableHead className="text-gray-600">Payment Method</TableHead>
+                  <TableHead className="text-gray-600">Date</TableHead>
+                  <TableHead className="text-gray-600">Added By</TableHead>
+                  <TableHead className="text-gray-600">Notes</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredTransactions.map((transaction) => (
                   <TableRow key={transaction.id} className="border-white/10 hover:bg-white/5">
-                    <TableCell className="text-white">
+                    <TableCell className="text-gray-700">
                       <div>
                         <div className="font-medium">{transaction.memberName}</div>
-                        <div className="text-sm text-blue-300">ID: {transaction.memberId}</div>
+                        <div className="text-sm text-gray-500">ID: {transaction.memberId}</div>
                       </div>
                     </TableCell>
-                    <TableCell className="text-white font-semibold">
+                    <TableCell className="text-gray-800 font-semibold">
                       ₹{transaction.amount.toLocaleString('en-IN')}
                     </TableCell>
                     <TableCell>{getFeeTypeBadge(transaction.feeType)}</TableCell>
                     <TableCell>{getPaymentMethodBadge(transaction.paymentMethod)}</TableCell>
-                    <TableCell className="text-blue-200">
+                    <TableCell className="text-gray-600">
                       {new Date(transaction.date).toLocaleDateString('en-IN')}
                     </TableCell>
-                    <TableCell className="text-blue-200">{transaction.addedBy}</TableCell>
-                    <TableCell className="text-blue-200 max-w-xs truncate">
+                    <TableCell className="text-gray-600">{transaction.addedBy}</TableCell>
+                    <TableCell className="text-gray-600 max-w-xs truncate">
                       {transaction.notes || '-'}
                     </TableCell>
                   </TableRow>
@@ -294,7 +331,7 @@ const Transactions = () => {
 
           {filteredTransactions.length === 0 && (
             <div className="text-center py-8">
-              <p className="text-blue-200">No transactions found matching your criteria.</p>
+              <p className="text-gray-500">No transactions found matching your criteria.</p>
             </div>
           )}
         </CardContent>

@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Dumbbell, Lock, User } from 'lucide-react';
+import { Dumbbell, Lock, User, Sparkles } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 
 const LoginPage = () => {
@@ -41,51 +41,61 @@ const LoginPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-800 flex items-center justify-center p-4">
-      <div className="absolute inset-0 opacity-20" style={{
-        backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.05'%3E%3Ccircle cx='30' cy='30' r='1'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`
-      }}></div>
+    <div className="min-h-screen bg-gradient-to-br from-[#e0f7fa] via-[#f0f4ff] to-[#ffffff] flex items-center justify-center p-4 relative overflow-hidden">
+      {/* Premium background pattern */}
+      <div className="absolute inset-0 opacity-5">
+        <div className="absolute top-0 left-1/4 w-96 h-96 bg-blue-400 rounded-full mix-blend-multiply filter blur-xl animate-pulse"></div>
+        <div className="absolute top-0 right-1/4 w-96 h-96 bg-purple-400 rounded-full mix-blend-multiply filter blur-xl animate-pulse animation-delay-2000"></div>
+        <div className="absolute bottom-0 left-1/3 w-96 h-96 bg-pink-400 rounded-full mix-blend-multiply filter blur-xl animate-pulse animation-delay-4000"></div>
+      </div>
       
-      <Card className="w-full max-w-md bg-white/10 backdrop-blur-md border-white/20 shadow-2xl">
+      <Card className="w-full max-w-md glass-card border-white/40 shadow-2xl relative z-10">
         <CardHeader className="text-center">
-          <div className="mx-auto w-16 h-16 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center mb-4">
-            <Dumbbell className="w-8 h-8 text-white" />
+          <div className="mx-auto w-20 h-20 premium-gradient rounded-2xl flex items-center justify-center mb-6 premium-glow">
+            <Dumbbell className="w-10 h-10 text-white" />
           </div>
-          <CardTitle className="text-2xl font-bold text-white">RangeFitGym</CardTitle>
-          <CardDescription className="text-blue-100">
-            Sign in to your gym management dashboard
+          <CardTitle className="text-3xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent">
+            RangeFitGym
+          </CardTitle>
+          <div className="flex items-center justify-center gap-2 mt-2 mb-4">
+            <Sparkles className="w-4 h-4 text-yellow-500" />
+            <span className="text-sm font-semibold text-gray-600">Premium CRM</span>
+            <Sparkles className="w-4 h-4 text-yellow-500" />
+          </div>
+          <CardDescription className="text-gray-600">
+            Access your premium gym management dashboard
           </CardDescription>
         </CardHeader>
         
         <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-6">
             <div className="space-y-2">
-              <Label htmlFor="username" className="text-white">Username</Label>
+              <Label htmlFor="username" className="text-gray-700 font-medium">Username</Label>
               <div className="relative">
-                <User className="absolute left-3 top-3 h-4 w-4 text-blue-300" />
+                <User className="absolute left-3 top-3 h-4 w-4 text-gray-500" />
                 <Input
                   id="username"
                   type="text"
                   placeholder="Enter your username"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  className="pl-10 bg-white/10 border-white/20 text-white placeholder:text-blue-200"
+                  className="pl-10 bg-white/70 border-white/60 text-gray-800 placeholder:text-gray-500 focus:bg-white focus:border-blue-400 transition-all duration-200"
                   required
                 />
               </div>
             </div>
             
             <div className="space-y-2">
-              <Label htmlFor="password" className="text-white">Password</Label>
+              <Label htmlFor="password" className="text-gray-700 font-medium">Password</Label>
               <div className="relative">
-                <Lock className="absolute left-3 top-3 h-4 w-4 text-blue-300" />
+                <Lock className="absolute left-3 top-3 h-4 w-4 text-gray-500" />
                 <Input
                   id="password"
                   type="password"
                   placeholder="Enter your password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="pl-10 bg-white/10 border-white/20 text-white placeholder:text-blue-200"
+                  className="pl-10 bg-white/70 border-white/60 text-gray-800 placeholder:text-gray-500 focus:bg-white focus:border-blue-400 transition-all duration-200"
                   required
                 />
               </div>
@@ -96,24 +106,29 @@ const LoginPage = () => {
                 id="remember"
                 checked={rememberMe}
                 onCheckedChange={(checked) => setRememberMe(checked as boolean)}
-                className="border-white/20"
+                className="border-gray-400"
               />
-              <Label htmlFor="remember" className="text-sm text-blue-100">
-                Remember me
+              <Label htmlFor="remember" className="text-sm text-gray-600">
+                Remember me for 30 days
               </Label>
             </div>
             
             <Button
               type="submit"
-              className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-semibold py-2 px-4 rounded-lg transition-all duration-200 transform hover:scale-105"
+              className="w-full premium-button text-lg py-3"
               disabled={isLoading}
             >
               {isLoading ? "Signing in..." : "Sign In"}
             </Button>
           </form>
           
-          <div className="mt-6 text-center text-sm text-blue-200">
-            Demo credentials: admin/password123, partner/password123, employee/password123
+          <div className="mt-8 p-4 bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl border border-blue-100">
+            <h4 className="text-sm font-semibold text-gray-700 mb-2">Demo Credentials:</h4>
+            <div className="space-y-1 text-xs text-gray-600">
+              <p><strong>Admin:</strong> admin / password123</p>
+              <p><strong>Partner:</strong> partner / password123</p>
+              <p><strong>Employee:</strong> employee / password123</p>
+            </div>
           </div>
         </CardContent>
       </Card>
