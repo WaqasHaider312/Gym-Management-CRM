@@ -1,4 +1,3 @@
-
 import { toast } from '@/hooks/use-toast';
 
 export interface WhatsAppMessage {
@@ -26,8 +25,8 @@ export interface Transaction {
 
 class WhatsAppService {
   // In a real implementation, you would configure your WhatsApp Business API
-  private apiEndpoint = process.env.WHATSAPP_API_ENDPOINT || '';
-  private apiKey = process.env.WHATSAPP_API_KEY || '';
+  private apiEndpoint = '';
+  private apiKey = '';
 
   async sendMessage(message: WhatsAppMessage): Promise<boolean> {
     try {
