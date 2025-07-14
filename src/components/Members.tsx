@@ -28,7 +28,6 @@ import {
 import { 
   Users, 
   Search, 
-  Filter, 
   Plus, 
   MoreVertical, 
   Eye, 
@@ -95,11 +94,11 @@ const Members = () => {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'active':
-        return <Badge className="bg-green-500/20 text-green-300 border-green-500/30">Active</Badge>;
+        return <Badge className="bg-green-500/20 text-green-700 border-green-500/30">Active</Badge>;
       case 'expired':
-        return <Badge className="bg-red-500/20 text-red-300 border-red-500/30">Expired</Badge>;
+        return <Badge className="bg-red-500/20 text-red-700 border-red-500/30">Expired</Badge>;
       case 'expiring_soon':
-        return <Badge className="bg-yellow-500/20 text-yellow-300 border-yellow-500/30">Expiring Soon</Badge>;
+        return <Badge className="bg-yellow-500/20 text-yellow-700 border-yellow-500/30">Expiring Soon</Badge>;
       default:
         return <Badge variant="outline">Unknown</Badge>;
     }
@@ -119,38 +118,38 @@ const Members = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-white mb-2 flex items-center">
-            <Users className="mr-3 h-8 w-8" />
+          <h1 className="text-3xl font-bold text-gray-800 mb-2 flex items-center">
+            <Users className="mr-3 h-8 w-8 text-blue-600" />
             Members Management
           </h1>
-          <p className="text-blue-200">
+          <p className="text-gray-600">
             Manage your gym members and their memberships
           </p>
         </div>
-        <Button className="mt-4 sm:mt-0 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700">
+        <Button className="mt-4 sm:mt-0 premium-button">
           <UserPlus className="mr-2 h-4 w-4" />
           Add Member
         </Button>
       </div>
 
       {/* Filters */}
-      <Card className="bg-white/10 backdrop-blur-md border-white/20">
+      <Card className="glass-card border-white/40">
         <CardContent className="pt-6">
           <div className="flex flex-col sm:flex-row gap-4">
             <div className="flex-1">
               <div className="relative">
-                <Search className="absolute left-3 top-3 h-4 w-4 text-blue-300" />
+                <Search className="absolute left-3 top-3 h-4 w-4 text-gray-500" />
                 <Input
                   placeholder="Search members by name or phone..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10 bg-white/10 border-white/20 text-white placeholder:text-blue-200"
+                  className="pl-10 bg-white/70 border-white/60 text-gray-800 placeholder:text-gray-500"
                 />
               </div>
             </div>
             
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-[180px] bg-white/10 border-white/20 text-white">
+              <SelectTrigger className="w-[180px] bg-white/70 border-white/60 text-gray-800">
                 <SelectValue placeholder="Filter by status" />
               </SelectTrigger>
               <SelectContent className="bg-white/95 backdrop-blur-md">
@@ -162,7 +161,7 @@ const Members = () => {
             </Select>
 
             <Select value={typeFilter} onValueChange={setTypeFilter}>
-              <SelectTrigger className="w-[180px] bg-white/10 border-white/20 text-white">
+              <SelectTrigger className="w-[180px] bg-white/70 border-white/60 text-gray-800">
                 <SelectValue placeholder="Filter by type" />
               </SelectTrigger>
               <SelectContent className="bg-white/95 backdrop-blur-md">
@@ -178,12 +177,12 @@ const Members = () => {
       </Card>
 
       {/* Members Table */}
-      <Card className="bg-white/10 backdrop-blur-md border-white/20">
+      <Card className="glass-card border-white/40">
         <CardHeader>
-          <CardTitle className="text-white">
+          <CardTitle className="text-gray-800">
             Members List ({filteredMembers.length})
           </CardTitle>
-          <CardDescription className="text-blue-200">
+          <CardDescription className="text-gray-600">
             Overview of all gym members and their membership status
           </CardDescription>
         </CardHeader>
@@ -191,33 +190,33 @@ const Members = () => {
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
-                <TableRow className="border-white/20">
-                  <TableHead className="text-blue-200">Name</TableHead>
-                  <TableHead className="text-blue-200">Phone</TableHead>
-                  <TableHead className="text-blue-200">Membership Type</TableHead>
-                  <TableHead className="text-blue-200">Start Date</TableHead>
-                  <TableHead className="text-blue-200">Expiry Date</TableHead>
-                  <TableHead className="text-blue-200">Status</TableHead>
-                  <TableHead className="text-blue-200">Actions</TableHead>
+                <TableRow className="border-gray-200">
+                  <TableHead className="text-gray-600">Name</TableHead>
+                  <TableHead className="text-gray-600">Phone</TableHead>
+                  <TableHead className="text-gray-600">Membership Type</TableHead>
+                  <TableHead className="text-gray-600">Start Date</TableHead>
+                  <TableHead className="text-gray-600">Expiry Date</TableHead>
+                  <TableHead className="text-gray-600">Status</TableHead>
+                  <TableHead className="text-gray-600">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredMembers.map((member) => (
-                  <TableRow key={member.id} className="border-white/10 hover:bg-white/5">
-                    <TableCell className="text-white font-medium">{member.name}</TableCell>
-                    <TableCell className="text-blue-200">{member.phone}</TableCell>
-                    <TableCell className="text-blue-200">{member.membershipType}</TableCell>
-                    <TableCell className="text-blue-200">
+                  <TableRow key={member.id} className="border-gray-100 hover:bg-white/50">
+                    <TableCell className="text-gray-800 font-medium">{member.name}</TableCell>
+                    <TableCell className="text-gray-600">{member.phone}</TableCell>
+                    <TableCell className="text-gray-600">{member.membershipType}</TableCell>
+                    <TableCell className="text-gray-600">
                       {new Date(member.startDate).toLocaleDateString('en-IN')}
                     </TableCell>
-                    <TableCell className="text-blue-200">
+                    <TableCell className="text-gray-600">
                       {new Date(member.expiryDate).toLocaleDateString('en-IN')}
                     </TableCell>
                     <TableCell>{getStatusBadge(member.status)}</TableCell>
                     <TableCell>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" className="h-8 w-8 p-0 text-white hover:bg-white/10">
+                          <Button variant="ghost" className="h-8 w-8 p-0 text-gray-600 hover:bg-white/50">
                             <MoreVertical className="h-4 w-4" />
                           </Button>
                         </DropdownMenuTrigger>

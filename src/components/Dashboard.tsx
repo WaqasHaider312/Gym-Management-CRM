@@ -26,7 +26,7 @@ const Dashboard = () => {
       value: '284',
       change: '+12 this month',
       icon: Users,
-      color: 'text-blue-400',
+      color: 'text-blue-600',
       bgColor: 'bg-blue-500/10'
     },
     {
@@ -34,7 +34,7 @@ const Dashboard = () => {
       value: '₹2,45,000',
       change: '+18% from last month',
       icon: IndianRupee,
-      color: 'text-green-400',
+      color: 'text-green-600',
       bgColor: 'bg-green-500/10'
     },
     {
@@ -42,7 +42,7 @@ const Dashboard = () => {
       value: '₹45,000',
       change: '+5% from last month',
       icon: Receipt,
-      color: 'text-orange-400',
+      color: 'text-orange-600',
       bgColor: 'bg-orange-500/10'
     },
     {
@@ -50,7 +50,7 @@ const Dashboard = () => {
       value: '23',
       change: 'Within 7 days',
       icon: AlertTriangle,
-      color: 'text-red-400',
+      color: 'text-red-600',
       bgColor: 'bg-red-500/10'
     }
   ];
@@ -73,15 +73,15 @@ const Dashboard = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-white mb-2">
+          <h1 className="text-3xl font-bold text-gray-800 mb-2">
             Welcome back, {user?.name}!
           </h1>
-          <p className="text-blue-200">
+          <p className="text-gray-600">
             Here's what's happening at RangeFitGym today
           </p>
         </div>
         <div className="mt-4 sm:mt-0">
-          <Badge className="bg-white/20 text-white px-3 py-1">
+          <Badge className="bg-gradient-to-r from-blue-500 to-purple-600 text-white px-3 py-1">
             <Calendar className="w-4 h-4 mr-2" />
             {new Date().toLocaleDateString('en-IN', { 
               weekday: 'long', 
@@ -96,9 +96,9 @@ const Dashboard = () => {
       {/* Dashboard Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {dashboardCards.map((card, index) => (
-          <Card key={index} className="bg-white/10 backdrop-blur-md border-white/20 hover:bg-white/15 transition-colors">
+          <Card key={index} className="glass-card border-white/40 hover:shadow-xl transition-all duration-200">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-blue-100">
+              <CardTitle className="text-sm font-medium text-gray-600">
                 {card.title}
               </CardTitle>
               <div className={`${card.bgColor} p-2 rounded-lg`}>
@@ -106,10 +106,10 @@ const Dashboard = () => {
               </div>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-white mb-1">
+              <div className="text-2xl font-bold text-gray-800 mb-1">
                 {card.value}
               </div>
-              <p className="text-xs text-blue-200">
+              <p className="text-xs text-gray-500">
                 {card.change}
               </p>
             </CardContent>
@@ -118,13 +118,13 @@ const Dashboard = () => {
       </div>
 
       {/* Quick Actions */}
-      <Card className="bg-white/10 backdrop-blur-md border-white/20">
+      <Card className="glass-card border-white/40">
         <CardHeader>
-          <CardTitle className="text-white flex items-center">
+          <CardTitle className="text-gray-800 flex items-center">
             <Activity className="mr-2 h-5 w-5" />
             Quick Actions
           </CardTitle>
-          <CardDescription className="text-blue-200">
+          <CardDescription className="text-gray-600">
             Frequently used actions for gym management
           </CardDescription>
         </CardHeader>
@@ -134,7 +134,7 @@ const Dashboard = () => {
               <Button
                 key={index}
                 variant="outline"
-                className="h-20 bg-white/5 border-white/20 text-white hover:bg-white/10 hover:scale-105 transition-all duration-200"
+                className="h-20 glass-card border-white/40 text-gray-700 hover:bg-white/80 hover:scale-105 transition-all duration-200"
               >
                 <div className="flex flex-col items-center space-y-2">
                   <action.icon className="h-6 w-6" />
@@ -147,20 +147,20 @@ const Dashboard = () => {
       </Card>
 
       {/* Activity Feed */}
-      <Card className="bg-white/10 backdrop-blur-md border-white/20">
+      <Card className="glass-card border-white/40">
         <CardHeader>
-          <CardTitle className="text-white flex items-center">
+          <CardTitle className="text-gray-800 flex items-center">
             <TrendingUp className="mr-2 h-5 w-5" />
             Recent Activity
           </CardTitle>
-          <CardDescription className="text-blue-200">
+          <CardDescription className="text-gray-600">
             Latest actions performed by team members
           </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
             {recentActivity.map((activity, index) => (
-              <div key={index} className="flex items-center space-x-4 p-3 rounded-lg bg-white/5 hover:bg-white/10 transition-colors">
+              <div key={index} className="flex items-center space-x-4 p-3 rounded-lg bg-white/50 hover:bg-white/80 transition-colors border border-white/40">
                 <div className="flex-shrink-0">
                   <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
                     <span className="text-white text-sm font-medium">
@@ -169,26 +169,26 @@ const Dashboard = () => {
                   </div>
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-white text-sm">
+                  <p className="text-gray-800 text-sm">
                     <span className="font-medium">{activity.user}</span>
-                    <span className="text-blue-200"> {activity.action}</span>
+                    <span className="text-gray-600"> {activity.action}</span>
                     {activity.amount && (
-                      <span className="font-medium text-green-400"> {activity.amount}</span>
+                      <span className="font-medium text-green-600"> {activity.amount}</span>
                     )}
                     {activity.member && (
-                      <span className="font-medium text-blue-400"> for {activity.member}</span>
+                      <span className="font-medium text-blue-600"> for {activity.member}</span>
                     )}
                   </p>
-                  <p className="text-blue-300 text-xs">{activity.time}</p>
+                  <p className="text-gray-500 text-xs">{activity.time}</p>
                 </div>
                 <Badge 
                   variant="outline" 
                   className={`
-                    text-xs border-white/20 
-                    ${activity.type === 'transaction' ? 'bg-green-500/20 text-green-300' : ''}
-                    ${activity.type === 'member' ? 'bg-blue-500/20 text-blue-300' : ''}
-                    ${activity.type === 'renewal' ? 'bg-purple-500/20 text-purple-300' : ''}
-                    ${activity.type === 'expense' ? 'bg-orange-500/20 text-orange-300' : ''}
+                    text-xs border-gray-200 
+                    ${activity.type === 'transaction' ? 'bg-green-500/20 text-green-700' : ''}
+                    ${activity.type === 'member' ? 'bg-blue-500/20 text-blue-700' : ''}
+                    ${activity.type === 'renewal' ? 'bg-purple-500/20 text-purple-700' : ''}
+                    ${activity.type === 'expense' ? 'bg-orange-500/20 text-orange-700' : ''}
                   `}
                 >
                   {activity.type}
