@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -12,9 +11,9 @@ const WhatsAppNotifications = () => {
 
   // Mock data for demo
   const expiringMembers = [
-    { id: 'M001', name: 'John Doe', phone: '+919876543210', membershipType: 'Premium', expiryDate: '2024-07-15' },
-    { id: 'M002', name: 'Sarah Wilson', phone: '+919876543211', membershipType: 'Basic', expiryDate: '2024-07-12' },
-    { id: 'M003', name: 'Mike Johnson', phone: '+919876543212', membershipType: 'Premium', expiryDate: '2024-07-18' },
+    { id: 'M001', name: 'John Doe', phone: '+923001234567', membershipType: 'Premium', expiryDate: '2024-07-15' },
+    { id: 'M002', name: 'Sarah Wilson', phone: '+923009876543', membershipType: 'Basic', expiryDate: '2024-07-12' },
+    { id: 'M003', name: 'Mike Johnson', phone: '+923331234567', membershipType: 'Premium', expiryDate: '2024-07-18' },
   ];
 
   const handleSendReminders = async () => {
@@ -24,7 +23,7 @@ const WhatsAppNotifications = () => {
       
       toast({
         title: "Reminders Sent!",
-        description: `Successfully sent ${result.sent} reminders. ${result.failed} failed.`,
+        description: `Successfully sent ${result.success} reminders. ${result.failed} failed.`,
       });
     } catch (error) {
       toast({
@@ -38,15 +37,13 @@ const WhatsAppNotifications = () => {
   };
 
   const handleTestNotification = async () => {
-    const testMember = {
-      id: 'TEST001',
-      name: 'Test User',
-      phone: '+919999999999',
-      membershipType: 'Premium',
-      expiryDate: '2024-08-15'
-    };
-
-    await whatsappService.sendMemberReceipt(testMember, 5000);
+    await whatsappService.sendMemberReceipt(
+      'Test User',
+      '+923999999999',
+      'Premium',
+      5000,
+      new Date().toLocaleDateString('en-US')
+    );
   };
 
   const getDaysUntilExpiry = (expiryDate: string) => {

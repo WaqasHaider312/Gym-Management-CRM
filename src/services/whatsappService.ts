@@ -1,126 +1,60 @@
 
-export class WhatsAppService {
-  private apiKey: string;
-  private apiUrl: string;
-
-  constructor() {
-    // For demo purposes using placeholder values
-    this.apiKey = 'demo_api_key';
-    this.apiUrl = 'https://api.whatsapp.com/demo';
-  }
-
-  // Member receipt notification
-  async sendMemberReceipt(
+// Mock WhatsApp service for demo purposes
+export const whatsappService = {
+  // Send a member receipt via WhatsApp
+  sendMemberReceipt: async (
     memberName: string,
     memberPhone: string,
     membershipType: string,
     amount: number,
     date: string
-  ): Promise<boolean> {
-    console.log('WhatsApp Receipt:', {
-      to: memberPhone,
-      templateName: 'member_receipt',
-      templateData: {
-        memberName,
-        membershipType,
-        amount: `Rs. ${amount}`,
-        date,
-        gymName: 'RangeFitGym'
-      }
+  ) => {
+    console.log('Sending WhatsApp receipt to:', memberPhone);
+    console.log('Receipt details:', {
+      memberName,
+      membershipType,
+      amount,
+      date
     });
     
-    // Simulate API call success
-    return new Promise(resolve => {
-      setTimeout(() => resolve(true), 1000);
-    });
-  }
+    // Simulate API call delay
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    // Return success response
+    return {
+      success: true,
+      message: 'WhatsApp receipt sent successfully'
+    };
+  },
 
-  // Expiry reminder notification
-  async sendExpiryReminder(
-    memberName: string,
-    memberPhone: string,
-    expiryDate: string,
-    membershipType: string
-  ): Promise<boolean> {
-    console.log('WhatsApp Expiry Reminder:', {
-      to: memberPhone,
-      templateName: 'expiry_reminder',
-      templateData: {
-        memberName,
-        expiryDate,
-        membershipType,
-        gymName: 'RangeFitGym'
-      }
-    });
+  // Send bulk expiry reminders
+  sendBulkExpiryReminders: async (members: any[]) => {
+    console.log('Sending bulk expiry reminders to members:', members);
     
-    // Simulate API call success
-    return new Promise(resolve => {
-      setTimeout(() => resolve(true), 1000);
-    });
-  }
-
-  // Bulk expiry reminders
-  async sendBulkExpiryReminders(
-    members: Array<{
-      name: string;
-      phone: string;
-      expiryDate: string;
-      membershipType: string;
-    }>
-  ): Promise<{
-    success: number;
-    failed: number;
-    total: number;
-  }> {
-    console.log(`Sending ${members.length} bulk expiry reminders`);
+    // Simulate API call delay
+    await new Promise(resolve => setTimeout(resolve, 1500));
     
-    let success = 0;
-    
-    for (const member of members) {
-      try {
-        await this.sendExpiryReminder(
-          member.name,
-          member.phone,
-          member.expiryDate,
-          member.membershipType
-        );
-        success++;
-      } catch (error) {
-        console.error(`Failed to send reminder to ${member.name}:`, error);
-      }
-    }
+    // Simulate some successful and some failed sends
+    const successful = Math.floor(members.length * 0.8);
+    const failed = members.length - successful;
     
     return {
-      success,
-      failed: members.length - success,
+      success: successful,
+      failed: failed,
       total: members.length
     };
-  }
+  },
 
-  // Payment reminder notification
-  async sendPaymentReminder(
-    memberName: string,
-    memberPhone: string,
-    dueDate: string,
-    amount: number
-  ): Promise<boolean> {
-    console.log('WhatsApp Payment Reminder:', {
-      to: memberPhone,
-      templateName: 'payment_reminder',
-      templateData: {
-        memberName,
-        dueDate,
-        amount: `Rs. ${amount}`,
-        gymName: 'RangeFitGym'
-      }
-    });
+  // Send individual expiry reminder
+  sendExpiryReminder: async (member: any) => {
+    console.log('Sending expiry reminder to:', member.phone);
     
-    // Simulate API call success
-    return new Promise(resolve => {
-      setTimeout(() => resolve(true), 1000);
-    });
+    // Simulate API call delay
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    return {
+      success: true,
+      message: 'Expiry reminder sent successfully'
+    };
   }
-}
-
-// Export a singleton instance
-export const whatsappService = new WhatsAppService();
+};
