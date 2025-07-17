@@ -27,6 +27,7 @@ import {
   MessageCircle
 } from 'lucide-react';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
+import { Toaster } from '@/components/ui/toaster';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -38,6 +39,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
+  const [isScrolled, setIsScrolled] = useState(false);
 
   useEffect(() => {
     const handleResize = () => {
@@ -48,8 +50,17 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       }
     };
 
+    const handleScroll = () => {
+      setIsScrolled(window.scrollY > 10);
+    };
+
     window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
+    window.addEventListener('scroll', handleScroll);
+    
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      window.removeEventListener('scroll', handleScroll);
+    };
   }, []);
 
   // Close sidebar when route changes on mobile
@@ -90,7 +101,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#e0f7fa] via-[#f0f4ff] to-[#ffffff]">
       {/* Premium Top Navigation */}
-      <nav className="glass-header sticky top-0 z-40">
+      <nav className={`glass-header sticky top-0 z-40 transition-all duration-300 ${isScrolled ? 'shadow-md' : ''}`}>
         <div className="px-3 sm:px-4 lg:px-6">
           <div className="flex justify-between items-center h-14 sm:h-16">
             <div className="flex items-center">
@@ -104,7 +115,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
               </Button>
               
               <div className="flex items-center ml-2 lg:ml-0">
-                <div className="p-1.5 sm:p-2 rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 shadow-lg">
+                <div className="p-1.5 sm:p-2 rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 shadow-lg hover:shadow-blue-500/20 transition-all duration-300">
                   <Dumbbell className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
                 </div>
                 <div className="ml-2 sm:ml-3">
@@ -117,19 +128,28 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             </div>
 
             <div className="flex items-center space-x-2 sm:space-x-4">
-              <Button variant="ghost" className="text-gray-700 hover:bg-white/50 p-2 rounded-xl relative">
+              <Button 
+                variant="ghost" 
+                className="text-gray-700 hover:bg-white/50 p-2 rounded-xl relative transition-all duration-200"
+              >
                 <Bell className="h-4 w-4 sm:h-5 sm:w-5" />
-                <span className="absolute -top-1 -right-1 h-2 w-2 sm:h-3 sm:w-3 bg-red-500 rounded-full"></span>
+                <span className="absolute -top-1 -right-1 h-2 w-2 sm:h-3 sm:w-3 bg-red-500 rounded-full animate-pulse"></span>
               </Button>
 
-              <Button variant="ghost" className="text-gray-700 hover:bg-white/50 p-2 rounded-xl hidden sm:block">
+              <Button 
+                variant="ghost" 
+                className="text-gray-700 hover:bg-white/50 p-2 rounded-xl hidden sm:block transition-all duration-200"
+              >
                 <MessageCircle className="h-5 w-5" />
               </Button>
               
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="flex items-center space-x-2 sm:space-x-3 text-gray-700 hover:bg-white/50 rounded-xl px-2 sm:px-4">
-                    <div className="p-1 sm:p-1.5 rounded-lg bg-gradient-to-r from-blue-500 to-purple-500">
+                  <Button 
+                    variant="ghost" 
+                    className="flex items-center space-x-2 sm:space-x-3 text-gray-700 hover:bg-white/50 rounded-xl px-2 sm:px-4 transition-all duration-200"
+                  >
+                    <div className="p-1 sm:p-1.5 rounded-lg bg-gradient-to-r from-blue-500 to-purple-500 hover:shadow-sm transition-all duration-200">
                       <User className="h-3 w-3 sm:h-4 sm:w-4 text-white" />
                     </div>
                     <div className="hidden sm:block text-left">
@@ -140,7 +160,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                     </div>
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56 glass-card border-white/40">
+                <DropdownMenuContent align="end" className="w-56 glass-card border-white/40 animate-in fade-in-20 zoom-in-95 duration-200">
                   <DropdownMenuItem className="flex items-center">
                     <User className="mr-2 h-4 w-4" />
                     <span>{user?.name}</span>
@@ -159,7 +179,13 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
       <div className="flex">
         {/* Premium Sidebar */}
-        <div className={`${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0 fixed lg:static inset-y-0 left-0 z-30 w-64 glass-sidebar transition-transform duration-300 ease-in-out`}>
+        <div 
+          className={`
+            ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} 
+            lg:translate-x-0 fixed lg:static inset-y-0 left-0 z-30 w-64 
+            glass-sidebar transition-transform duration-300 ease-in-out
+          `}
+        >
           <div className="flex flex-col h-full pt-16 lg:pt-4 pb-4 overflow-y-auto">
             <nav className="mt-2 flex-1 px-3 sm:px-4 space-y-1">
               {filteredNavItems.map((item) => (
@@ -169,13 +195,13 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                   className={({ isActive }) =>
                     `group flex items-center px-3 sm:px-4 py-2.5 text-sm font-medium rounded-xl transition-all duration-200 ${
                       isActive
-                        ? 'bg-white/80 text-blue-700 shadow-lg shadow-blue-500/20 border border-blue-200/50'
-                        : 'text-gray-700 hover:bg-white/50 hover:text-blue-600'
+                        ? 'bg-white/80 text-blue-700 shadow-lg shadow-blue-500/20 border border-blue-200/50 transform scale-105'
+                        : 'text-gray-700 hover:bg-white/50 hover:text-blue-600 hover:scale-[1.02]'
                     }`
                   }
                   onClick={() => isMobile && setSidebarOpen(false)}
                 >
-                  <item.icon className="mr-3 h-5 w-5 flex-shrink-0" />
+                  <item.icon className="mr-3 h-5 w-5 flex-shrink-0 transition-transform duration-200 group-hover:scale-110" />
                   {item.name}
                 </NavLink>
               ))}
@@ -192,19 +218,19 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       </div>
       
       {/* Mobile Navigation Bottom Bar */}
-      <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-md border-t border-gray-200 z-30">
+      <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-md border-t border-gray-200 z-30 animate-in slide-in-from-bottom-5 duration-300">
         <div className="grid grid-cols-4 gap-1">
           {filteredNavItems.slice(0, 4).map((item) => (
             <NavLink
               key={item.name}
               to={item.path}
               className={({ isActive }) =>
-                `flex flex-col items-center justify-center py-2 transition-colors ${
+                `flex flex-col items-center justify-center py-2 transition-colors duration-200 ${
                   isActive ? 'text-blue-600' : 'text-gray-600'
                 }`
               }
             >
-              <item.icon className="h-5 w-5" />
+              <item.icon className={`h-5 w-5 transition-transform duration-200 ${location.pathname === item.path ? 'scale-110' : ''}`} />
               <span className="text-xs mt-0.5">{item.name}</span>
             </NavLink>
           ))}
@@ -214,10 +240,13 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       {/* Mobile Sidebar Overlay */}
       {sidebarOpen && (
         <div
-          className="fixed inset-0 z-20 bg-black/20 lg:hidden backdrop-blur-sm"
+          className="fixed inset-0 z-20 bg-black/20 lg:hidden backdrop-blur-sm transition-opacity duration-300"
           onClick={() => setSidebarOpen(false)}
         />
       )}
+      
+      {/* Toast notifications */}
+      <Toaster />
     </div>
   );
 };

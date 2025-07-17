@@ -45,7 +45,8 @@ import {
   Lightbulb,
   Wrench,
   ShoppingCart,
-  Check
+  Check,
+  Loader2
 } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -77,6 +78,7 @@ const Expenses = () => {
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [isAddExpenseDialogOpen, setIsAddExpenseDialogOpen] = useState(false);
   const [isSuccessDialogOpen, setIsSuccessDialogOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // React Hook Form setup with zod validation
   const form = useForm<z.infer<typeof expenseFormSchema>>({
@@ -133,7 +135,7 @@ const Expenses = () => {
       'Staff': 'bg-purple-500/20 text-purple-700 border-purple-500/30'
     };
     return (
-      <Badge className={colors[category as keyof typeof colors] || 'bg-gray-500/20 text-gray-700 border-gray-500/30'}>
+      <Badge className={`${colors[category as keyof typeof colors] || 'bg-gray-500/20 text-gray-700 border-gray-500/30'} transition-colors duration-150`}>
         {category}
       </Badge>
     );
@@ -156,14 +158,37 @@ const Expenses = () => {
 
   const totalExpenses = filteredExpenses.reduce((sum, expense) => sum + expense.amount, 0);
 
-  const onSubmit = (values: z.infer<typeof expenseFormSchema>) => {
-    // Handle form submission
-    console.log(values);
-    setIsAddExpenseDialogOpen(false);
-    setIsSuccessDialogOpen(true);
+  const onSubmit = async (values: z.infer<typeof expenseFormSchema>) => {
+    setIsSubmitting(true);
     
-    // Reset form
-    form.reset();
+    try {
+      // Simulate API call with a delay
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      
+      console.log('Expense form submitted:', values);
+      
+      // Close dialog and show success
+      setIsAddExpenseDialogOpen(false);
+      setIsSuccessDialogOpen(true);
+      
+      // Show toast notification
+      toast({
+        title: "Expense Added Successfully",
+        description: `"${values.description}" has been recorded.`,
+      });
+      
+      // Reset form
+      form.reset();
+    } catch (error) {
+      console.error('Error submitting form:', error);
+      toast({
+        title: "Error Adding Expense",
+        description: "There was a problem adding the expense. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -181,7 +206,7 @@ const Expenses = () => {
         </div>
         <Button 
           onClick={() => setIsAddExpenseDialogOpen(true)} 
-          className="w-full sm:w-auto premium-button"
+          className="w-full sm:w-auto premium-button transition-transform duration-200 hover:scale-105"
         >
           <Plus className="mr-2 h-4 w-4" />
           Add Expense
@@ -190,7 +215,7 @@ const Expenses = () => {
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 md:gap-6">
-        <Card className="glass-card border-white/40">
+        <Card className="glass-card border-white/40 hover:shadow-xl transition-all duration-200">
           <CardContent className="pt-4 sm:pt-6">
             <div className="flex items-center justify-between">
               <div>
@@ -204,7 +229,7 @@ const Expenses = () => {
           </CardContent>
         </Card>
 
-        <Card className="glass-card border-white/40">
+        <Card className="glass-card border-white/40 hover:shadow-xl transition-all duration-200">
           <CardContent className="pt-4 sm:pt-6">
             <div className="flex items-center justify-between">
               <div>
@@ -218,7 +243,7 @@ const Expenses = () => {
           </CardContent>
         </Card>
 
-        <Card className="glass-card border-white/40">
+        <Card className="glass-card border-white/40 hover:shadow-xl transition-all duration-200">
           <CardContent className="pt-4 sm:pt-6">
             <div className="flex items-center justify-between">
               <div>
@@ -244,13 +269,13 @@ const Expenses = () => {
                   placeholder="Search expenses by description..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10 bg-white/70 border-white/60 text-gray-800 placeholder:text-gray-500"
+                  className="pl-10 bg-white/70 border-white/60 text-gray-800 placeholder:text-gray-500 transition-all focus:ring-2 focus:ring-blue-500/50 focus:border-blue-400"
                 />
               </div>
             </div>
             
             <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-              <SelectTrigger className="w-full lg:w-[180px] bg-white/70 border-white/60 text-gray-800">
+              <SelectTrigger className="w-full lg:w-[180px] bg-white/70 border-white/60 text-gray-800 transition-all focus:ring-2 focus:ring-blue-500/50 focus:border-blue-400">
                 <SelectValue placeholder="Filter by category" />
               </SelectTrigger>
               <SelectContent className="bg-white/95 backdrop-blur-md">
@@ -266,37 +291,61 @@ const Expenses = () => {
       </Card>
 
       {/* Expense Cards - Mobile */}
-      <div className="block lg:hidden space-y-4">
-        {filteredExpenses.map((expense) => (
-          <Card key={expense.id} className="glass-card border-white/40">
-            <CardContent className="pt-4">
-              <div className="flex items-start justify-between mb-3">
-                <div className="flex-1">
-                  <h3 className="font-semibold text-gray-800 text-lg">{expense.description}</h3>
-                  <p className="text-xs text-gray-500 mt-1">{new Date(expense.date).toLocaleDateString('en-US')}</p>
+      <div className="block lg:hidden space-y-4 animate-in fade-in-50 duration-300">
+        {filteredExpenses.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-8 bg-white/50 rounded-lg">
+            <Receipt className="h-10 w-10 text-gray-400 mb-3" />
+            <h3 className="text-base font-medium text-gray-700">No expenses found 📭</h3>
+            <p className="text-gray-500 mt-1 text-sm">Try adjusting your search or filters</p>
+          </div>
+        ) : (
+          filteredExpenses.map((expense) => (
+            <Card key={expense.id} className="glass-card border-white/40 hover:shadow-md transition-all duration-200">
+              <CardContent className="pt-4">
+                <div className="flex items-start justify-between mb-3">
+                  <div className="flex-1">
+                    <h3 className="font-semibold text-gray-800 text-lg">{expense.description}</h3>
+                    <p className="text-xs text-gray-500 mt-1">{new Date(expense.date).toLocaleDateString('en-US')}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-xl font-bold text-gray-800">Rs.{expense.amount.toLocaleString('en-US')}</p>
+                  </div>
                 </div>
-                <div className="text-right">
-                  <p className="text-xl font-bold text-gray-800">Rs.{expense.amount.toLocaleString('en-US')}</p>
+                
+                <div className="grid grid-cols-2 gap-4 mb-3">
+                  <div>
+                    <p className="text-xs text-gray-500">Category</p>
+                    <div className="mt-1">{getCategoryBadge(expense.category)}</div>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500">Added By</p>
+                    <p className="text-sm text-gray-600 mt-1">{expense.addedBy}</p>
+                  </div>
                 </div>
-              </div>
-              
-              <div className="grid grid-cols-2 gap-4 mb-3">
-                <div>
-                  <p className="text-xs text-gray-500">Category</p>
-                  <div className="mt-1">{getCategoryBadge(expense.category)}</div>
+                
+                <div className="mt-2 flex space-x-2">
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="flex-1 text-xs bg-white/60 hover:bg-white transition-colors duration-150"
+                  >
+                    View Details
+                  </Button>
+                  <Button 
+                    size="sm" 
+                    className="flex-1 text-xs bg-blue-500 hover:bg-blue-600 text-white transition-colors duration-150"
+                  >
+                    Edit
+                  </Button>
                 </div>
-                <div>
-                  <p className="text-xs text-gray-500">Added By</p>
-                  <p className="text-sm text-gray-600 mt-1">{expense.addedBy}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+              </CardContent>
+            </Card>
+          ))
+        )}
       </div>
 
       {/* Expenses Table - Desktop */}
-      <Card className="glass-card border-white/40 hidden lg:block">
+      <Card className="glass-card border-white/40 hidden lg:block animate-in fade-in-50 duration-300">
         <CardHeader>
           <CardTitle className="text-gray-800">
             Expense Records ({filteredExpenses.length})
@@ -306,34 +355,42 @@ const Expenses = () => {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow className="border-gray-200">
-                  <TableHead className="text-gray-600">Description</TableHead>
-                  <TableHead className="text-gray-600">Amount</TableHead>
-                  <TableHead className="text-gray-600">Category</TableHead>
-                  <TableHead className="text-gray-600">Date</TableHead>
-                  <TableHead className="text-gray-600">Added By</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredExpenses.map((expense) => (
-                  <TableRow key={expense.id} className="border-gray-100 hover:bg-white/50">
-                    <TableCell className="text-gray-800 font-medium">{expense.description}</TableCell>
-                    <TableCell className="text-gray-800 font-semibold">
-                      Rs.{expense.amount.toLocaleString('en-US')}
-                    </TableCell>
-                    <TableCell>{getCategoryBadge(expense.category)}</TableCell>
-                    <TableCell className="text-gray-600">
-                      {new Date(expense.date).toLocaleDateString('en-US')}
-                    </TableCell>
-                    <TableCell className="text-gray-600">{expense.addedBy}</TableCell>
+          {filteredExpenses.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-8 bg-white/50 rounded-lg">
+              <Receipt className="h-12 w-12 text-gray-400 mb-4" />
+              <h3 className="text-lg font-medium text-gray-700">No expenses found 📭</h3>
+              <p className="text-gray-500 mt-1">Try adjusting your search or filters</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow className="border-gray-200">
+                    <TableHead className="text-gray-600">Description</TableHead>
+                    <TableHead className="text-gray-600">Amount</TableHead>
+                    <TableHead className="text-gray-600">Category</TableHead>
+                    <TableHead className="text-gray-600">Date</TableHead>
+                    <TableHead className="text-gray-600">Added By</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
+                </TableHeader>
+                <TableBody>
+                  {filteredExpenses.map((expense) => (
+                    <TableRow key={expense.id} className="border-gray-100 hover:bg-white/50 transition-colors duration-150">
+                      <TableCell className="text-gray-800 font-medium">{expense.description}</TableCell>
+                      <TableCell className="text-gray-800 font-semibold">
+                        Rs.{expense.amount.toLocaleString('en-US')}
+                      </TableCell>
+                      <TableCell>{getCategoryBadge(expense.category)}</TableCell>
+                      <TableCell className="text-gray-600">
+                        {new Date(expense.date).toLocaleDateString('en-US')}
+                      </TableCell>
+                      <TableCell className="text-gray-600">{expense.addedBy}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -361,7 +418,7 @@ const Expenses = () => {
                     <FormControl>
                       <Input 
                         placeholder="Enter expense description" 
-                        className="bg-white/70 border-white/60"
+                        className="bg-white/70 border-white/60 transition-all focus:ring-2 focus:ring-blue-500/50 focus:border-blue-400"
                         {...field} 
                       />
                     </FormControl>
@@ -378,12 +435,15 @@ const Expenses = () => {
                     <FormItem>
                       <FormLabel className="text-gray-700">Amount (Rs)</FormLabel>
                       <FormControl>
-                        <Input 
-                          type="number" 
-                          placeholder="Enter amount" 
-                          className="bg-white/70 border-white/60"
-                          {...field} 
-                        />
+                        <div className="relative">
+                          <IndianRupee className="absolute left-3 top-3 h-4 w-4 text-gray-500" />
+                          <Input 
+                            type="number" 
+                            placeholder="Enter amount" 
+                            className="pl-10 bg-white/70 border-white/60 transition-all focus:ring-2 focus:ring-blue-500/50 focus:border-blue-400"
+                            {...field} 
+                          />
+                        </div>
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -397,11 +457,14 @@ const Expenses = () => {
                     <FormItem>
                       <FormLabel className="text-gray-700">Date</FormLabel>
                       <FormControl>
-                        <Input 
-                          type="date" 
-                          className="bg-white/70 border-white/60"
-                          {...field} 
-                        />
+                        <div className="relative">
+                          <Calendar className="absolute left-3 top-3 h-4 w-4 text-gray-500" />
+                          <Input 
+                            type="date" 
+                            className="pl-10 bg-white/70 border-white/60 transition-all focus:ring-2 focus:ring-blue-500/50 focus:border-blue-400"
+                            {...field} 
+                          />
+                        </div>
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -420,7 +483,7 @@ const Expenses = () => {
                       defaultValue={field.value}
                     >
                       <FormControl>
-                        <SelectTrigger className="bg-white/70 border-white/60">
+                        <SelectTrigger className="bg-white/70 border-white/60 transition-all focus:ring-2 focus:ring-blue-500/50 focus:border-blue-400">
                           <SelectValue placeholder="Select category" />
                         </SelectTrigger>
                       </FormControl>
@@ -445,7 +508,7 @@ const Expenses = () => {
                     <FormControl>
                       <Input 
                         placeholder="Additional notes" 
-                        className="bg-white/70 border-white/60"
+                        className="bg-white/70 border-white/60 transition-all focus:ring-2 focus:ring-blue-500/50 focus:border-blue-400"
                         {...field} 
                       />
                     </FormControl>
@@ -458,17 +521,28 @@ const Expenses = () => {
                 <Button 
                   variant="outline" 
                   type="button" 
-                  className="bg-white/70 border-white/60" 
+                  className="bg-white/70 border-white/60 transition-colors hover:bg-gray-100" 
                   onClick={() => setIsAddExpenseDialogOpen(false)}
+                  disabled={isSubmitting}
                 >
                   Cancel
                 </Button>
                 <Button 
                   type="submit"
-                  className="premium-button"
+                  className="premium-button transition-all duration-200 hover:shadow-lg disabled:opacity-70"
+                  disabled={isSubmitting}
                 >
-                  <Plus className="mr-2 h-4 w-4" />
-                  Add Expense
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Adding...
+                    </>
+                  ) : (
+                    <>
+                      <Plus className="mr-2 h-4 w-4" />
+                      Add Expense
+                    </>
+                  )}
                 </Button>
               </DialogFooter>
             </form>
@@ -480,8 +554,8 @@ const Expenses = () => {
       <Dialog open={isSuccessDialogOpen} onOpenChange={setIsSuccessDialogOpen}>
         <DialogContent className="glass-card border-white/40 sm:max-w-md">
           <div className="flex flex-col items-center justify-center py-4">
-            <div className="h-12 w-12 bg-green-100 rounded-full flex items-center justify-center mb-4">
-              <Check className="h-6 w-6 text-green-600" />
+            <div className="h-14 w-14 bg-green-100 rounded-full flex items-center justify-center mb-4 animate-in zoom-in-50 duration-300">
+              <Check className="h-8 w-8 text-green-600" />
             </div>
             <DialogTitle className="text-xl font-semibold text-gray-800 text-center">
               Expense Added Successfully!
@@ -490,18 +564,26 @@ const Expenses = () => {
               The expense has been recorded in the system.
             </DialogDescription>
             
-            <div className="mt-6">
+            <div className="mt-6 w-full flex flex-col sm:flex-row gap-3">
               <Button
-                className="w-full"
+                variant="outline"
+                className="flex-1 bg-white/70 border-white/60 transition-colors hover:bg-gray-100"
                 onClick={() => {
                   setIsSuccessDialogOpen(false);
-                  toast({
-                    title: "Expense Added",
-                    description: "The expense has been recorded successfully",
-                  });
+                  setIsAddExpenseDialogOpen(true);
                 }}
               >
-                Close
+                <Plus className="mr-2 h-4 w-4" />
+                Add Another
+              </Button>
+              <Button
+                className="flex-1 premium-button transition-all duration-200"
+                onClick={() => {
+                  setIsSuccessDialogOpen(false);
+                }}
+              >
+                <Check className="mr-2 h-4 w-4" />
+                Done
               </Button>
             </div>
           </div>

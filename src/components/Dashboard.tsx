@@ -13,12 +13,16 @@ import {
   Bell,
   TrendingUp,
   Calendar,
-  Activity
+  Activity,
+  ArrowRight
 } from 'lucide-react';
 import { useAuth } from './AuthContext';
+import { toast } from '@/hooks/use-toast';
+import { useNavigate } from 'react-router-dom';
 
 const Dashboard = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
 
   const dashboardCards = [
     {
@@ -56,9 +60,14 @@ const Dashboard = () => {
   ];
 
   const quickActions = [
-    { name: 'Add Member', icon: UserPlus, path: '/members/add' },
-    { name: 'Add Expense', icon: Plus, path: '/expenses/add' },
-    { name: 'Send Reminders', icon: Bell, path: '/notifications' }
+    { name: 'Add Member', icon: UserPlus, path: '/members', action: () => navigate('/members') },
+    { name: 'Add Expense', icon: Plus, path: '/expenses', action: () => navigate('/expenses') },
+    { name: 'Send Reminders', icon: Bell, path: '/notifications', action: () => {
+      toast({
+        title: "Sending Reminders",
+        description: "WhatsApp reminders will be sent to expiring members.",
+      });
+    }}
   ];
 
   const recentActivity = [
@@ -72,7 +81,7 @@ const Dashboard = () => {
     <div className="space-y-5 sm:space-y-6 md:space-y-8">
       {/* Header */}
       <div className="flex flex-col space-y-3 sm:space-y-0 sm:flex-row sm:items-center sm:justify-between">
-        <div>
+        <div className="animate-in slide-in-from-left-5 duration-300">
           <h1 className="text-2xl sm:text-3xl font-bold text-gray-800 mb-1 sm:mb-2">
             Welcome back, {user?.name}!
           </h1>
@@ -80,7 +89,7 @@ const Dashboard = () => {
             Here's what's happening at RangeFitGym today
           </p>
         </div>
-        <div className="flex justify-start sm:justify-end">
+        <div className="flex justify-start sm:justify-end animate-in slide-in-from-right-5 duration-300">
           <Badge className="bg-gradient-to-r from-blue-500 to-purple-600 text-white px-2 py-1 sm:px-3 sm:py-1 text-xs sm:text-sm">
             <Calendar className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
             <span className="hidden xs:inline">
@@ -104,7 +113,11 @@ const Dashboard = () => {
       {/* Dashboard Cards */}
       <div className="grid grid-cols-1 xs:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-6">
         {dashboardCards.map((card, index) => (
-          <Card key={index} className="glass-card border-white/40 hover:shadow-xl transition-all duration-200">
+          <Card 
+            key={index} 
+            className="glass-card border-white/40 hover:shadow-xl transition-all duration-300 hover:scale-[1.02] animate-in fade-in-50 duration-300"
+            style={{ animationDelay: `${index * 75}ms` }}
+          >
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 sm:pb-2 pt-3 sm:pt-4 px-3 sm:px-4">
               <CardTitle className="text-xs sm:text-sm font-medium text-gray-600">
                 {card.title}
@@ -126,7 +139,7 @@ const Dashboard = () => {
       </div>
 
       {/* Quick Actions */}
-      <Card className="glass-card border-white/40">
+      <Card className="glass-card border-white/40 animate-in fade-in-50 duration-300" style={{ animationDelay: '300ms' }}>
         <CardHeader className="pt-4 sm:pt-6 pb-2 px-4 sm:px-6">
           <CardTitle className="text-gray-800 flex items-center text-lg sm:text-xl">
             <Activity className="mr-2 h-5 w-5" />
@@ -143,6 +156,7 @@ const Dashboard = () => {
                 key={index}
                 variant="outline"
                 className="h-14 sm:h-16 md:h-20 glass-card border-white/40 text-gray-700 hover:bg-white/80 hover:scale-105 transition-all duration-200"
+                onClick={action.action}
               >
                 <div className="flex flex-col items-center space-y-1 sm:space-y-2">
                   <action.icon className="h-4 w-4 sm:h-5 sm:w-5" />
@@ -155,7 +169,7 @@ const Dashboard = () => {
       </Card>
 
       {/* Activity Feed */}
-      <Card className="glass-card border-white/40">
+      <Card className="glass-card border-white/40 animate-in fade-in-50 duration-300" style={{ animationDelay: '400ms' }}>
         <CardHeader className="pt-4 sm:pt-6 pb-2 px-4 sm:px-6">
           <CardTitle className="text-gray-800 flex items-center text-lg sm:text-xl">
             <TrendingUp className="mr-2 h-5 w-5" />
@@ -168,7 +182,11 @@ const Dashboard = () => {
         <CardContent className="px-4 sm:px-6 pb-4 sm:pb-6">
           <div className="space-y-2 sm:space-y-3">
             {recentActivity.map((activity, index) => (
-              <div key={index} className="flex items-start sm:items-center space-x-2 sm:space-x-3 p-2 sm:p-3 rounded-lg bg-white/50 hover:bg-white/80 transition-colors border border-white/40">
+              <div 
+                key={index} 
+                className="flex items-start sm:items-center space-x-2 sm:space-x-3 p-2 sm:p-3 rounded-lg bg-white/50 hover:bg-white/80 transition-all duration-200 hover:shadow-sm"
+                style={{ animationDelay: `${index * 100 + 500}ms` }}
+              >
                 <div className="flex-shrink-0">
                   <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
                     <span className="text-white text-xs sm:text-sm font-medium">
@@ -205,6 +223,16 @@ const Dashboard = () => {
                 </div>
               </div>
             ))}
+          </div>
+          
+          <div className="mt-4 flex justify-center">
+            <Button 
+              variant="outline" 
+              className="text-xs sm:text-sm bg-white/70 border-white/60 transition-all duration-200 hover:bg-white hover:shadow-sm"
+            >
+              View All Activity
+              <ArrowRight className="ml-1 h-4 w-4" />
+            </Button>
           </div>
         </CardContent>
       </Card>
