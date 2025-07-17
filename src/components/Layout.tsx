@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from './AuthContext';
 import { Button } from '@/components/ui/button';
 import { 
@@ -26,7 +26,7 @@ import {
   Home,
   MessageCircle
 } from 'lucide-react';
-import { NavLink, useNavigate } from 'react-router-dom';
+import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -35,7 +35,29 @@ interface LayoutProps {
 const Layout: React.FC<LayoutProps> = ({ children }) => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 1024);
+      // Close sidebar automatically on resize to larger screens
+      if (window.innerWidth >= 1024) {
+        setSidebarOpen(false);
+      }
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  // Close sidebar when route changes on mobile
+  useEffect(() => {
+    if (isMobile) {
+      setSidebarOpen(false);
+    }
+  }, [location.pathname, isMobile]);
 
   const handleLogout = () => {
     logout();
@@ -69,20 +91,21 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     <div className="min-h-screen bg-gradient-to-br from-[#e0f7fa] via-[#f0f4ff] to-[#ffffff]">
       {/* Premium Top Navigation */}
       <nav className="glass-header sticky top-0 z-40">
-        <div className="px-3 sm:px-4 lg:px-8">
+        <div className="px-3 sm:px-4 lg:px-6">
           <div className="flex justify-between items-center h-14 sm:h-16">
             <div className="flex items-center">
               <Button
                 onClick={() => setSidebarOpen(!sidebarOpen)}
                 className="p-2 rounded-xl text-gray-700 hover:bg-white/50 lg:hidden transition-all duration-200"
                 variant="ghost"
+                aria-label="Toggle sidebar"
               >
-                {sidebarOpen ? <X className="h-5 w-5 sm:h-6 sm:w-6" /> : <Menu className="h-5 w-5 sm:h-6 sm:w-6" />}
+                {sidebarOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
               </Button>
               
               <div className="flex items-center ml-2 lg:ml-0">
                 <div className="p-1.5 sm:p-2 rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 shadow-lg">
-                  <Dumbbell className="h-6 w-6 sm:h-8 sm:w-8 text-white" />
+                  <Dumbbell className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
                 </div>
                 <div className="ml-2 sm:ml-3">
                   <h1 className="text-lg sm:text-xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent">
@@ -137,20 +160,20 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       <div className="flex">
         {/* Premium Sidebar */}
         <div className={`${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0 fixed lg:static inset-y-0 left-0 z-30 w-64 glass-sidebar transition-transform duration-300 ease-in-out`}>
-          <div className="flex flex-col h-full pt-4 sm:pt-6 pb-4 overflow-y-auto">
-            <nav className="mt-4 sm:mt-6 flex-1 px-3 sm:px-4 space-y-1 sm:space-y-2">
+          <div className="flex flex-col h-full pt-16 lg:pt-4 pb-4 overflow-y-auto">
+            <nav className="mt-2 flex-1 px-3 sm:px-4 space-y-1">
               {filteredNavItems.map((item) => (
                 <NavLink
                   key={item.name}
                   to={item.path}
                   className={({ isActive }) =>
-                    `group flex items-center px-3 sm:px-4 py-2.5 sm:py-3 text-sm font-medium rounded-xl transition-all duration-200 ${
+                    `group flex items-center px-3 sm:px-4 py-2.5 text-sm font-medium rounded-xl transition-all duration-200 ${
                       isActive
                         ? 'bg-white/80 text-blue-700 shadow-lg shadow-blue-500/20 border border-blue-200/50'
                         : 'text-gray-700 hover:bg-white/50 hover:text-blue-600'
                     }`
                   }
-                  onClick={() => setSidebarOpen(false)}
+                  onClick={() => isMobile && setSidebarOpen(false)}
                 >
                   <item.icon className="mr-3 h-5 w-5 flex-shrink-0" />
                   {item.name}
@@ -161,10 +184,30 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         </div>
 
         {/* Main Content */}
-        <div className="flex-1 lg:ml-0 min-w-0">
-          <main className="p-3 sm:p-4 lg:p-8">
+        <div className="flex-1 lg:ml-0 min-w-0 w-full">
+          <main className="p-3 sm:p-4 lg:p-6">
             {children}
           </main>
+        </div>
+      </div>
+      
+      {/* Mobile Navigation Bottom Bar */}
+      <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-md border-t border-gray-200 z-30">
+        <div className="grid grid-cols-4 gap-1">
+          {filteredNavItems.slice(0, 4).map((item) => (
+            <NavLink
+              key={item.name}
+              to={item.path}
+              className={({ isActive }) =>
+                `flex flex-col items-center justify-center py-2 transition-colors ${
+                  isActive ? 'text-blue-600' : 'text-gray-600'
+                }`
+              }
+            >
+              <item.icon className="h-5 w-5" />
+              <span className="text-xs mt-0.5">{item.name}</span>
+            </NavLink>
+          ))}
         </div>
       </div>
       

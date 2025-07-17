@@ -19,6 +19,22 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form';
 import { 
   Receipt, 
   Search, 
@@ -29,8 +45,12 @@ import {
   Lightbulb,
   Wrench,
   ShoppingCart,
-  User
+  Check
 } from 'lucide-react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import * as z from 'zod';
+import { toast } from '@/hooks/use-toast';
 
 interface Expense {
   id: string;
@@ -42,9 +62,33 @@ interface Expense {
   receipt?: string;
 }
 
+const expenseFormSchema = z.object({
+  description: z.string().min(3, { message: "Description must be at least 3 characters" }),
+  amount: z.string().min(1, { message: "Amount is required" }),
+  category: z.string({
+    required_error: "Please select a category",
+  }),
+  date: z.string().min(1, { message: "Date is required" }),
+  notes: z.string().optional(),
+});
+
 const Expenses = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
+  const [isAddExpenseDialogOpen, setIsAddExpenseDialogOpen] = useState(false);
+  const [isSuccessDialogOpen, setIsSuccessDialogOpen] = useState(false);
+
+  // React Hook Form setup with zod validation
+  const form = useForm<z.infer<typeof expenseFormSchema>>({
+    resolver: zodResolver(expenseFormSchema),
+    defaultValues: {
+      description: "",
+      amount: "",
+      category: "",
+      date: new Date().toISOString().split('T')[0],
+      notes: "",
+    },
+  });
 
   const expenses: Expense[] = [
     {
@@ -112,36 +156,49 @@ const Expenses = () => {
 
   const totalExpenses = filteredExpenses.reduce((sum, expense) => sum + expense.amount, 0);
 
+  const onSubmit = (values: z.infer<typeof expenseFormSchema>) => {
+    // Handle form submission
+    console.log(values);
+    setIsAddExpenseDialogOpen(false);
+    setIsSuccessDialogOpen(true);
+    
+    // Reset form
+    form.reset();
+  };
+
   return (
     <div className="space-y-4 sm:space-y-6">
       {/* Header */}
-      <div className="flex flex-col space-y-4 sm:space-y-0 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col space-y-3 sm:space-y-0 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-800 mb-2 flex items-center">
-            <Receipt className="mr-3 h-6 w-6 sm:h-8 sm:w-8 text-orange-600" />
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-800 mb-1 sm:mb-2 flex items-center">
+            <Receipt className="mr-2 sm:mr-3 h-6 w-6 sm:h-7 sm:w-7 text-orange-600" />
             Expenses Management
           </h1>
           <p className="text-gray-600 text-sm sm:text-base">
             Track and manage all gym operational expenses
           </p>
         </div>
-        <Button className="w-full sm:w-auto premium-button">
+        <Button 
+          onClick={() => setIsAddExpenseDialogOpen(true)} 
+          className="w-full sm:w-auto premium-button"
+        >
           <Plus className="mr-2 h-4 w-4" />
           Add Expense
         </Button>
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 md:gap-6">
         <Card className="glass-card border-white/40">
           <CardContent className="pt-4 sm:pt-6">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-gray-600 text-sm font-medium">Total Expenses</p>
-                <p className="text-2xl sm:text-3xl font-bold text-gray-800">₹{totalExpenses.toLocaleString('en-IN')}</p>
+                <p className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-800">Rs.{totalExpenses.toLocaleString('en-US')}</p>
               </div>
               <div className="p-2 sm:p-3 rounded-xl bg-gradient-to-r from-orange-500 to-orange-600 shadow-lg">
-                <Receipt className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
+                <Receipt className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-white" />
               </div>
             </div>
           </CardContent>
@@ -152,10 +209,10 @@ const Expenses = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-gray-600 text-sm font-medium">This Month</p>
-                <p className="text-2xl sm:text-3xl font-bold text-gray-800">₹{Math.round(totalExpenses * 0.6).toLocaleString('en-IN')}</p>
+                <p className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-800">Rs.{Math.round(totalExpenses * 0.6).toLocaleString('en-US')}</p>
               </div>
               <div className="p-2 sm:p-3 rounded-xl bg-gradient-to-r from-red-500 to-red-600 shadow-lg">
-                <TrendingDown className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
+                <TrendingDown className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-white" />
               </div>
             </div>
           </CardContent>
@@ -166,10 +223,10 @@ const Expenses = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-gray-600 text-sm font-medium">Categories</p>
-                <p className="text-2xl sm:text-3xl font-bold text-gray-800">{new Set(expenses.map(e => e.category)).size}</p>
+                <p className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-800">{new Set(expenses.map(e => e.category)).size}</p>
               </div>
               <div className="p-2 sm:p-3 rounded-xl bg-gradient-to-r from-purple-500 to-purple-600 shadow-lg">
-                <IndianRupee className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
+                <IndianRupee className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-white" />
               </div>
             </div>
           </CardContent>
@@ -216,10 +273,10 @@ const Expenses = () => {
               <div className="flex items-start justify-between mb-3">
                 <div className="flex-1">
                   <h3 className="font-semibold text-gray-800 text-lg">{expense.description}</h3>
-                  <p className="text-xs text-gray-500 mt-1">{new Date(expense.date).toLocaleDateString('en-IN')}</p>
+                  <p className="text-xs text-gray-500 mt-1">{new Date(expense.date).toLocaleDateString('en-US')}</p>
                 </div>
                 <div className="text-right">
-                  <p className="text-xl font-bold text-gray-800">₹{expense.amount.toLocaleString('en-IN')}</p>
+                  <p className="text-xl font-bold text-gray-800">Rs.{expense.amount.toLocaleString('en-US')}</p>
                 </div>
               </div>
               
@@ -230,10 +287,7 @@ const Expenses = () => {
                 </div>
                 <div>
                   <p className="text-xs text-gray-500">Added By</p>
-                  <div className="flex items-center mt-1">
-                    <User className="h-3 w-3 mr-1 text-gray-600" />
-                    <span className="text-sm text-gray-600">{expense.addedBy}</span>
-                  </div>
+                  <p className="text-sm text-gray-600 mt-1">{expense.addedBy}</p>
                 </div>
               </div>
             </CardContent>
@@ -268,11 +322,11 @@ const Expenses = () => {
                   <TableRow key={expense.id} className="border-gray-100 hover:bg-white/50">
                     <TableCell className="text-gray-800 font-medium">{expense.description}</TableCell>
                     <TableCell className="text-gray-800 font-semibold">
-                      ₹{expense.amount.toLocaleString('en-IN')}
+                      Rs.{expense.amount.toLocaleString('en-US')}
                     </TableCell>
                     <TableCell>{getCategoryBadge(expense.category)}</TableCell>
                     <TableCell className="text-gray-600">
-                      {new Date(expense.date).toLocaleDateString('en-IN')}
+                      {new Date(expense.date).toLocaleDateString('en-US')}
                     </TableCell>
                     <TableCell className="text-gray-600">{expense.addedBy}</TableCell>
                   </TableRow>
@@ -282,6 +336,177 @@ const Expenses = () => {
           </div>
         </CardContent>
       </Card>
+
+      {/* Add Expense Dialog */}
+      <Dialog open={isAddExpenseDialogOpen} onOpenChange={setIsAddExpenseDialogOpen}>
+        <DialogContent className="glass-card border-white/40 sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-semibold text-gray-800 flex items-center">
+              <Receipt className="mr-2 h-5 w-5 text-orange-600" />
+              Add New Expense
+            </DialogTitle>
+            <DialogDescription className="text-gray-600">
+              Complete the form below to record a new expense.
+            </DialogDescription>
+          </DialogHeader>
+
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+              <FormField
+                control={form.control}
+                name="description"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-gray-700">Description</FormLabel>
+                    <FormControl>
+                      <Input 
+                        placeholder="Enter expense description" 
+                        className="bg-white/70 border-white/60"
+                        {...field} 
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="amount"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-gray-700">Amount (Rs)</FormLabel>
+                      <FormControl>
+                        <Input 
+                          type="number" 
+                          placeholder="Enter amount" 
+                          className="bg-white/70 border-white/60"
+                          {...field} 
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="date"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-gray-700">Date</FormLabel>
+                      <FormControl>
+                        <Input 
+                          type="date" 
+                          className="bg-white/70 border-white/60"
+                          {...field} 
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <FormField
+                control={form.control}
+                name="category"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-gray-700">Category</FormLabel>
+                    <Select
+                      onValueChange={field.onChange}
+                      defaultValue={field.value}
+                    >
+                      <FormControl>
+                        <SelectTrigger className="bg-white/70 border-white/60">
+                          <SelectValue placeholder="Select category" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent className="bg-white/95 backdrop-blur-md">
+                        <SelectItem value="Utilities">Utilities</SelectItem>
+                        <SelectItem value="Equipment">Equipment</SelectItem>
+                        <SelectItem value="Maintenance">Maintenance</SelectItem>
+                        <SelectItem value="Staff">Staff</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="notes"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-gray-700">Notes (Optional)</FormLabel>
+                    <FormControl>
+                      <Input 
+                        placeholder="Additional notes" 
+                        className="bg-white/70 border-white/60"
+                        {...field} 
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <DialogFooter className="mt-6">
+                <Button 
+                  variant="outline" 
+                  type="button" 
+                  className="bg-white/70 border-white/60" 
+                  onClick={() => setIsAddExpenseDialogOpen(false)}
+                >
+                  Cancel
+                </Button>
+                <Button 
+                  type="submit"
+                  className="premium-button"
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  Add Expense
+                </Button>
+              </DialogFooter>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Success Dialog */}
+      <Dialog open={isSuccessDialogOpen} onOpenChange={setIsSuccessDialogOpen}>
+        <DialogContent className="glass-card border-white/40 sm:max-w-md">
+          <div className="flex flex-col items-center justify-center py-4">
+            <div className="h-12 w-12 bg-green-100 rounded-full flex items-center justify-center mb-4">
+              <Check className="h-6 w-6 text-green-600" />
+            </div>
+            <DialogTitle className="text-xl font-semibold text-gray-800 text-center">
+              Expense Added Successfully!
+            </DialogTitle>
+            <DialogDescription className="text-gray-600 text-center mt-2">
+              The expense has been recorded in the system.
+            </DialogDescription>
+            
+            <div className="mt-6">
+              <Button
+                className="w-full"
+                onClick={() => {
+                  setIsSuccessDialogOpen(false);
+                  toast({
+                    title: "Expense Added",
+                    description: "The expense has been recorded successfully",
+                  });
+                }}
+              >
+                Close
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

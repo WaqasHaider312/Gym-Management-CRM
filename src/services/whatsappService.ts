@@ -1,180 +1,98 @@
-import { toast } from '@/hooks/use-toast';
 
-export interface WhatsAppMessage {
-  to: string;
-  message: string;
-  type: 'receipt' | 'confirmation' | 'reminder' | 'expiry';
-}
+// This is a simulated service for WhatsApp functionality in demo mode
 
-export interface Member {
-  id: string;
-  name: string;
-  phone: string;
-  membershipType: string;
-  expiryDate: string;
-}
-
-export interface Transaction {
-  id: string;
+type Transaction = {
   memberName: string;
   memberPhone: string;
   amount: number;
   feeType: string;
+  paymentMethod: string;
   date: string;
-}
+  addedBy: string;
+};
 
 class WhatsAppService {
-  // In a real implementation, you would configure your WhatsApp Business API
-  private apiEndpoint = '';
-  private apiKey = '';
+  private apiUrl: string;
+  private apiKey: string;
 
-  async sendMessage(message: WhatsAppMessage): Promise<boolean> {
-    try {
-      console.log('Sending WhatsApp message:', message);
-      
-      // Demo implementation - in production, this would call actual WhatsApp API
-      // For now, we'll simulate the API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Simulate success/failure (90% success rate for demo)
-      const success = Math.random() > 0.1;
-      
-      if (success) {
-        toast({
-          title: "WhatsApp Sent!",
-          description: `Message sent to ${message.to}`,
-        });
-        return true;
-      } else {
-        throw new Error('Failed to send WhatsApp message');
-      }
-    } catch (error) {
-      console.error('WhatsApp send error:', error);
-      toast({
-        title: "WhatsApp Failed",
-        description: "Failed to send WhatsApp message. Please try again.",
-        variant: "destructive",
-      });
-      return false;
-    }
+  constructor() {
+    // For demo purposes, we're using placeholder values
+    this.apiUrl = 'https://api.example.com/whatsapp';
+    this.apiKey = 'demo-key-1234567890';
   }
 
-  // Send new member receipt
-  async sendMemberReceipt(member: Member, admissionFee: number): Promise<boolean> {
-    const message: WhatsAppMessage = {
-      to: member.phone,
-      message: `🎉 Welcome to RangeFitGym, ${member.name}!
-
-📋 Member ID: ${member.id}
-💪 Membership: ${member.membershipType}
-💰 Admission Fee: ₹${admissionFee.toLocaleString('en-IN')}
-📅 Valid Until: ${new Date(member.expiryDate).toLocaleDateString('en-IN')}
-
-Thank you for joining us! We're excited to be part of your fitness journey.
-
-For any queries, feel free to contact us.
-RangeFitGym Team 💪`,
-      type: 'receipt'
-    };
-
-    return this.sendMessage(message);
-  }
-
-  // Send payment confirmation
   async sendPaymentConfirmation(transaction: Transaction): Promise<boolean> {
-    const message: WhatsAppMessage = {
-      to: transaction.memberPhone,
-      message: `✅ Payment Confirmed - RangeFitGym
-
-👋 Hi ${transaction.memberName},
-
-Your payment has been successfully received:
-
-💰 Amount: ₹${transaction.amount.toLocaleString('en-IN')}
-📋 Fee Type: ${transaction.feeType}
-📅 Date: ${new Date(transaction.date).toLocaleDateString('en-IN')}
-🆔 Transaction ID: ${transaction.id}
-
-Thank you for your payment! Keep crushing your fitness goals! 💪
-
-RangeFitGym Team`,
-      type: 'confirmation'
-    };
-
-    return this.sendMessage(message);
+    // In a real implementation, this would send a request to the WhatsApp API
+    // For demo purposes, we'll simulate a successful API call
+    console.log('Sending WhatsApp payment confirmation to:', transaction.memberPhone);
+    
+    // Simulated message template
+    const message = `
+      Hello ${transaction.memberName},
+      
+      Your payment of Rs.${transaction.amount} for ${transaction.feeType} has been received via ${transaction.paymentMethod}.
+      
+      Thank you for being a member at RangeFitGym!
+      
+      - Team RangeFitGym
+    `;
+    
+    console.log('WhatsApp message content:', message);
+    
+    // Simulate API delay
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    // Return success
+    return true;
   }
 
-  // Send membership expiry reminder
-  async sendExpiryReminder(member: Member, daysLeft: number): Promise<boolean> {
-    const message: WhatsAppMessage = {
-      to: member.phone,
-      message: `⏰ Membership Expiry Reminder - RangeFitGym
-
-Hi ${member.name},
-
-Your ${member.membershipType} membership is expiring soon!
-
-📅 Expiry Date: ${new Date(member.expiryDate).toLocaleDateString('en-IN')}
-⏳ Days Left: ${daysLeft} days
-
-To continue enjoying our premium facilities, please renew your membership before it expires.
-
-💡 Renew now to avoid any interruption in your fitness journey!
-
-Contact us for renewal: [Your Contact]
-RangeFitGym Team 💪`,
-      type: 'reminder'
-    };
-
-    return this.sendMessage(message);
+  async sendMembershipReminder(memberName: string, phone: string, expiryDate: string): Promise<boolean> {
+    // Simulate sending a membership reminder
+    console.log('Sending membership reminder to:', phone);
+    
+    // Simulated message template
+    const message = `
+      Hello ${memberName},
+      
+      Your RangeFitGym membership is expiring on ${expiryDate}. 
+      Please renew your membership to continue enjoying our facilities.
+      
+      - Team RangeFitGym
+    `;
+    
+    console.log('WhatsApp reminder content:', message);
+    
+    // Simulate API delay
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    // Return success
+    return true;
   }
 
-  // Send membership expired notification
-  async sendExpiryNotification(member: Member): Promise<boolean> {
-    const message: WhatsAppMessage = {
-      to: member.phone,
-      message: `❌ Membership Expired - RangeFitGym
-
-Hi ${member.name},
-
-Your ${member.membershipType} membership has expired on ${new Date(member.expiryDate).toLocaleDateString('en-IN')}.
-
-To continue using our facilities, please renew your membership at the earliest.
-
-We miss you at the gym! Come back stronger! 💪
-
-For renewal, contact us: [Your Contact]
-RangeFitGym Team`,
-      type: 'expiry'
-    };
-
-    return this.sendMessage(message);
-  }
-
-  // Send bulk reminders for expiring memberships
-  async sendBulkExpiryReminders(members: Member[]): Promise<{ sent: number; failed: number }> {
-    let sent = 0;
-    let failed = 0;
-
-    for (const member of members) {
-      const expiryDate = new Date(member.expiryDate);
-      const today = new Date();
-      const daysLeft = Math.ceil((expiryDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-
-      if (daysLeft > 0 && daysLeft <= 7) {
-        const success = await this.sendExpiryReminder(member, daysLeft);
-        if (success) {
-          sent++;
-        } else {
-          failed++;
-        }
-        
-        // Add delay between messages to avoid rate limiting
-        await new Promise(resolve => setTimeout(resolve, 500));
-      }
-    }
-
-    return { sent, failed };
+  async sendWelcomeMessage(memberName: string, phone: string): Promise<boolean> {
+    // Simulate sending a welcome message
+    console.log('Sending welcome message to:', phone);
+    
+    // Simulated message template
+    const message = `
+      Welcome to RangeFitGym, ${memberName}!
+      
+      We're excited to have you as a member. Your membership is now active.
+      
+      Gym hours: 6:00 AM - 10:00 PM daily
+      
+      Feel free to contact us if you have any questions.
+      
+      - Team RangeFitGym
+    `;
+    
+    console.log('WhatsApp welcome content:', message);
+    
+    // Simulate API delay
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    // Return success
+    return true;
   }
 }
 

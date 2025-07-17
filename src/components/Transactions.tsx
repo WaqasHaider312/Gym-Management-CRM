@@ -19,19 +19,37 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form';
 import { 
   CreditCard, 
   Search, 
   Plus, 
   IndianRupee,
-  Calendar,
-  Filter,
   MessageCircle,
-  User
+  User,
+  Check
 } from 'lucide-react';
 import { useAuth } from './AuthContext';
 import { whatsappService } from '@/services/whatsappService';
 import { toast } from '@/hooks/use-toast';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import * as z from 'zod';
 
 interface Transaction {
   id: string;
@@ -46,19 +64,48 @@ interface Transaction {
   notes?: string;
 }
 
+// Define form schema using zod
+const transactionFormSchema = z.object({
+  memberName: z.string().min(3, { message: "Member name is required" }),
+  memberPhone: z.string().min(11, { message: "Valid phone number required" }),
+  amount: z.string().min(1, { message: "Amount is required" }),
+  feeType: z.string({
+    required_error: "Please select a fee type",
+  }),
+  paymentMethod: z.string({
+    required_error: "Please select a payment method",
+  }),
+  notes: z.string().optional(),
+});
+
 const Transactions = () => {
   const { user } = useAuth();
   const [searchTerm, setSearchTerm] = useState('');
   const [feeTypeFilter, setFeeTypeFilter] = useState('all');
   const [paymentMethodFilter, setPaymentMethodFilter] = useState('all');
+  const [isAddTransactionDialogOpen, setIsAddTransactionDialogOpen] = useState(false);
+  const [isSuccessDialogOpen, setIsSuccessDialogOpen] = useState(false);
 
-  // Mock data - same as before
+  // React Hook Form setup with zod validation
+  const form = useForm<z.infer<typeof transactionFormSchema>>({
+    resolver: zodResolver(transactionFormSchema),
+    defaultValues: {
+      memberName: "",
+      memberPhone: "",
+      amount: "",
+      feeType: "",
+      paymentMethod: "",
+      notes: "",
+    },
+  });
+
+  // Mock data
   const transactions: Transaction[] = [
     {
       id: '1',
       memberId: 'M001',
       memberName: 'John Doe',
-      memberPhone: '+919876543210',
+      memberPhone: '+92 9876543210',
       amount: 3000,
       feeType: 'Strength',
       paymentMethod: 'Cash',
@@ -70,7 +117,7 @@ const Transactions = () => {
       id: '2',
       memberId: 'M002', 
       memberName: 'Sarah Wilson',
-      memberPhone: '+919876543211',
+      memberPhone: '+92 9876543211',
       amount: 5000,
       feeType: 'Cardio + Strength',
       paymentMethod: 'Online',
@@ -82,7 +129,7 @@ const Transactions = () => {
       id: '3',
       memberId: 'M003',
       memberName: 'Mike Johnson',
-      memberPhone: '+919876543212',
+      memberPhone: '+92 9876543212',
       amount: 2500,
       feeType: 'Cardio',
       paymentMethod: 'Cash',
@@ -94,7 +141,7 @@ const Transactions = () => {
       id: '4',
       memberId: 'M004',
       memberName: 'Emma Brown',
-      memberPhone: '+919876543213',
+      memberPhone: '+92 9876543213',
       amount: 8000,
       feeType: 'Personal training',
       paymentMethod: 'Online',
@@ -140,43 +187,43 @@ const Transactions = () => {
 
   const totalAmount = filteredTransactions.reduce((sum, transaction) => sum + transaction.amount, 0);
 
-  const handleAddTransaction = async () => {
-    // Demo: Simulate adding a transaction and sending WhatsApp
-    const newTransaction = {
-      id: 'T' + Date.now(),
-      memberName: 'Demo Member',
-      memberPhone: '+919999999999',
-      amount: 3000,
-      feeType: 'Monthly Fee',
-      paymentMethod: 'Cash',
-      date: new Date().toISOString().split('T')[0],
-      addedBy: user?.name || 'Admin'
-    };
+  const handleAddTransaction = () => {
+    setIsAddTransactionDialogOpen(true);
+  };
 
+  const onSubmit = async (values: z.infer<typeof transactionFormSchema>) => {
+    // Handle form submission
+    console.log(values);
+    setIsAddTransactionDialogOpen(false);
+    setIsSuccessDialogOpen(true);
+    
+    // Demo: Simulate sending WhatsApp
     try {
       // In a real app, you would save to database first
-      await whatsappService.sendPaymentConfirmation(newTransaction);
+      await whatsappService.sendPaymentConfirmation({
+        memberName: values.memberName,
+        memberPhone: values.memberPhone,
+        amount: parseInt(values.amount),
+        feeType: values.feeType,
+        paymentMethod: values.paymentMethod,
+        date: new Date().toISOString().split('T')[0],
+        addedBy: user?.name || 'Admin'
+      });
       
-      toast({
-        title: "Transaction Added!",
-        description: "Payment confirmation sent via WhatsApp",
-      });
+      // Reset form
+      form.reset();
     } catch (error) {
-      toast({
-        title: "Transaction Added",
-        description: "But WhatsApp notification failed to send",
-        variant: "destructive",
-      });
+      console.error("Failed to send WhatsApp notification:", error);
     }
   };
 
   return (
     <div className="space-y-4 sm:space-y-6">
       {/* Header */}
-      <div className="flex flex-col space-y-4 sm:space-y-0 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col space-y-3 sm:space-y-0 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent mb-2 flex items-center">
-            <CreditCard className="mr-3 h-6 w-6 sm:h-8 sm:w-8 text-blue-600" />
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-800 mb-1 sm:mb-2 flex items-center">
+            <CreditCard className="mr-2 sm:mr-3 h-6 w-6 sm:h-7 sm:w-7 text-blue-600" />
             Transactions
           </h1>
           <p className="text-gray-600 text-sm sm:text-base">
@@ -190,16 +237,16 @@ const Transactions = () => {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 md:gap-6">
         <Card className="glass-card border-white/40">
           <CardContent className="pt-4 sm:pt-6">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-gray-600 text-sm font-medium">Total Transactions</p>
-                <p className="text-2xl sm:text-3xl font-bold text-gray-800">{filteredTransactions.length}</p>
+                <p className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-800">{filteredTransactions.length}</p>
               </div>
               <div className="p-2 sm:p-3 rounded-xl bg-gradient-to-r from-blue-500 to-blue-600 shadow-lg">
-                <CreditCard className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
+                <CreditCard className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-white" />
               </div>
             </div>
           </CardContent>
@@ -210,10 +257,10 @@ const Transactions = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-gray-600 text-sm font-medium">Total Amount</p>
-                <p className="text-2xl sm:text-3xl font-bold text-gray-800">₹{totalAmount.toLocaleString('en-IN')}</p>
+                <p className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-800">Rs.{totalAmount.toLocaleString('en-US')}</p>
               </div>
               <div className="p-2 sm:p-3 rounded-xl bg-gradient-to-r from-green-500 to-green-600 shadow-lg">
-                <IndianRupee className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
+                <IndianRupee className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-white" />
               </div>
             </div>
           </CardContent>
@@ -224,10 +271,10 @@ const Transactions = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-gray-600 text-sm font-medium">WhatsApp Sent</p>
-                <p className="text-2xl sm:text-3xl font-bold text-gray-800">{filteredTransactions.length}</p>
+                <p className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-800">{filteredTransactions.length}</p>
               </div>
               <div className="p-2 sm:p-3 rounded-xl bg-gradient-to-r from-purple-500 to-purple-600 shadow-lg">
-                <MessageCircle className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
+                <MessageCircle className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-white" />
               </div>
             </div>
           </CardContent>
@@ -290,8 +337,8 @@ const Transactions = () => {
                   <p className="text-sm text-gray-600">ID: {transaction.memberId}</p>
                 </div>
                 <div className="text-right">
-                  <p className="text-xl font-bold text-gray-800">₹{transaction.amount.toLocaleString('en-IN')}</p>
-                  <p className="text-xs text-gray-500">{new Date(transaction.date).toLocaleDateString('en-IN')}</p>
+                  <p className="text-lg sm:text-xl font-bold text-gray-800">Rs.{transaction.amount.toLocaleString('en-US')}</p>
+                  <p className="text-xs text-gray-500">{new Date(transaction.date).toLocaleDateString('en-US')}</p>
                 </div>
               </div>
               
@@ -349,7 +396,7 @@ const Transactions = () => {
               </TableHeader>
               <TableBody>
                 {filteredTransactions.map((transaction) => (
-                  <TableRow key={transaction.id} className="border-white/10 hover:bg-white/5">
+                  <TableRow key={transaction.id} className="border-white/10 hover:bg-white/50">
                     <TableCell className="text-gray-700">
                       <div>
                         <div className="font-medium">{transaction.memberName}</div>
@@ -357,12 +404,12 @@ const Transactions = () => {
                       </div>
                     </TableCell>
                     <TableCell className="text-gray-800 font-semibold">
-                      ₹{transaction.amount.toLocaleString('en-IN')}
+                      Rs.{transaction.amount.toLocaleString('en-US')}
                     </TableCell>
                     <TableCell>{getFeeTypeBadge(transaction.feeType)}</TableCell>
                     <TableCell>{getPaymentMethodBadge(transaction.paymentMethod)}</TableCell>
                     <TableCell className="text-gray-600">
-                      {new Date(transaction.date).toLocaleDateString('en-IN')}
+                      {new Date(transaction.date).toLocaleDateString('en-US')}
                     </TableCell>
                     <TableCell className="text-gray-600">{transaction.addedBy}</TableCell>
                     <TableCell className="text-gray-600 max-w-xs truncate">
@@ -381,6 +428,202 @@ const Transactions = () => {
           )}
         </CardContent>
       </Card>
+
+      {/* Add Transaction Dialog */}
+      <Dialog open={isAddTransactionDialogOpen} onOpenChange={setIsAddTransactionDialogOpen}>
+        <DialogContent className="glass-card border-white/40 sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-semibold text-gray-800 flex items-center">
+              <CreditCard className="mr-2 h-5 w-5 text-blue-600" />
+              Add New Transaction
+            </DialogTitle>
+            <DialogDescription className="text-gray-600">
+              Complete the form below to record a new payment.
+            </DialogDescription>
+          </DialogHeader>
+
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+              <FormField
+                control={form.control}
+                name="memberName"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-gray-700">Member Name</FormLabel>
+                    <FormControl>
+                      <Input 
+                        placeholder="Enter member's name" 
+                        className="bg-white/70 border-white/60"
+                        {...field} 
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="memberPhone"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-gray-700">Phone Number</FormLabel>
+                    <FormControl>
+                      <Input 
+                        placeholder="Enter phone number" 
+                        className="bg-white/70 border-white/60"
+                        {...field} 
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="amount"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-gray-700">Amount (Rs)</FormLabel>
+                    <FormControl>
+                      <Input 
+                        type="number" 
+                        placeholder="Enter amount" 
+                        className="bg-white/70 border-white/60"
+                        {...field} 
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="feeType"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-gray-700">Fee Type</FormLabel>
+                      <Select
+                        onValueChange={field.onChange}
+                        defaultValue={field.value}
+                      >
+                        <FormControl>
+                          <SelectTrigger className="bg-white/70 border-white/60">
+                            <SelectValue placeholder="Select type" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent className="bg-white/95 backdrop-blur-md">
+                          <SelectItem value="Strength">Strength</SelectItem>
+                          <SelectItem value="Cardio">Cardio</SelectItem>
+                          <SelectItem value="Cardio + Strength">Cardio + Strength</SelectItem>
+                          <SelectItem value="Personal training">Personal Training</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="paymentMethod"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-gray-700">Payment Method</FormLabel>
+                      <Select
+                        onValueChange={field.onChange}
+                        defaultValue={field.value}
+                      >
+                        <FormControl>
+                          <SelectTrigger className="bg-white/70 border-white/60">
+                            <SelectValue placeholder="Select method" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent className="bg-white/95 backdrop-blur-md">
+                          <SelectItem value="Cash">Cash</SelectItem>
+                          <SelectItem value="Online">Online</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <FormField
+                control={form.control}
+                name="notes"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-gray-700">Notes (Optional)</FormLabel>
+                    <FormControl>
+                      <Input 
+                        placeholder="Additional notes" 
+                        className="bg-white/70 border-white/60"
+                        {...field} 
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <DialogFooter className="mt-6">
+                <Button 
+                  variant="outline" 
+                  type="button" 
+                  className="bg-white/70 border-white/60" 
+                  onClick={() => setIsAddTransactionDialogOpen(false)}
+                >
+                  Cancel
+                </Button>
+                <Button 
+                  type="submit"
+                  className="premium-button"
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  Add Transaction
+                </Button>
+              </DialogFooter>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Success Dialog */}
+      <Dialog open={isSuccessDialogOpen} onOpenChange={setIsSuccessDialogOpen}>
+        <DialogContent className="glass-card border-white/40 sm:max-w-md">
+          <div className="flex flex-col items-center justify-center py-4">
+            <div className="h-12 w-12 bg-green-100 rounded-full flex items-center justify-center mb-4">
+              <Check className="h-6 w-6 text-green-600" />
+            </div>
+            <DialogTitle className="text-xl font-semibold text-gray-800 text-center">
+              Transaction Added Successfully!
+            </DialogTitle>
+            <DialogDescription className="text-gray-600 text-center mt-2">
+              Payment has been recorded and a WhatsApp receipt was sent to the member.
+            </DialogDescription>
+            
+            <div className="mt-6">
+              <Button
+                className="w-full"
+                onClick={() => {
+                  setIsSuccessDialogOpen(false);
+                  toast({
+                    title: "Transaction Complete",
+                    description: "Payment recorded and WhatsApp confirmation sent",
+                  });
+                }}
+              >
+                Close
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
