@@ -33,7 +33,8 @@ import {
   Eye, 
   Edit, 
   Trash2,
-  UserPlus
+  UserPlus,
+  Phone
 } from 'lucide-react';
 
 interface Member {
@@ -114,19 +115,19 @@ const Members = () => {
   });
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col space-y-4 sm:space-y-0 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-800 mb-2 flex items-center">
-            <Users className="mr-3 h-8 w-8 text-blue-600" />
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-800 mb-2 flex items-center">
+            <Users className="mr-3 h-6 w-6 sm:h-8 sm:w-8 text-blue-600" />
             Members Management
           </h1>
-          <p className="text-gray-600">
+          <p className="text-gray-600 text-sm sm:text-base">
             Manage your gym members and their memberships
           </p>
         </div>
-        <Button className="mt-4 sm:mt-0 premium-button">
+        <Button className="w-full sm:w-auto premium-button">
           <UserPlus className="mr-2 h-4 w-4" />
           Add Member
         </Button>
@@ -134,8 +135,8 @@ const Members = () => {
 
       {/* Filters */}
       <Card className="glass-card border-white/40">
-        <CardContent className="pt-6">
-          <div className="flex flex-col sm:flex-row gap-4">
+        <CardContent className="pt-4 sm:pt-6">
+          <div className="flex flex-col space-y-3 sm:space-y-4 lg:flex-row lg:space-y-0 lg:space-x-4">
             <div className="flex-1">
               <div className="relative">
                 <Search className="absolute left-3 top-3 h-4 w-4 text-gray-500" />
@@ -148,36 +149,98 @@ const Members = () => {
               </div>
             </div>
             
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-[180px] bg-white/70 border-white/60 text-gray-800">
-                <SelectValue placeholder="Filter by status" />
-              </SelectTrigger>
-              <SelectContent className="bg-white/95 backdrop-blur-md">
-                <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="active">Active</SelectItem>
-                <SelectItem value="expired">Expired</SelectItem>
-                <SelectItem value="expiring_soon">Expiring Soon</SelectItem>
-              </SelectContent>
-            </Select>
+            <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:flex lg:space-x-4">
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-full lg:w-[180px] bg-white/70 border-white/60 text-gray-800">
+                  <SelectValue placeholder="Filter by status" />
+                </SelectTrigger>
+                <SelectContent className="bg-white/95 backdrop-blur-md">
+                  <SelectItem value="all">All Status</SelectItem>
+                  <SelectItem value="active">Active</SelectItem>
+                  <SelectItem value="expired">Expired</SelectItem>
+                  <SelectItem value="expiring_soon">Expiring Soon</SelectItem>
+                </SelectContent>
+              </Select>
 
-            <Select value={typeFilter} onValueChange={setTypeFilter}>
-              <SelectTrigger className="w-[180px] bg-white/70 border-white/60 text-gray-800">
-                <SelectValue placeholder="Filter by type" />
-              </SelectTrigger>
-              <SelectContent className="bg-white/95 backdrop-blur-md">
-                <SelectItem value="all">All Types</SelectItem>
-                <SelectItem value="Monthly">Monthly</SelectItem>
-                <SelectItem value="3 months">3 Months</SelectItem>
-                <SelectItem value="6 months">6 Months</SelectItem>
-                <SelectItem value="12 months">12 Months</SelectItem>
-              </SelectContent>
-            </Select>
+              <Select value={typeFilter} onValueChange={setTypeFilter}>
+                <SelectTrigger className="w-full lg:w-[180px] bg-white/70 border-white/60 text-gray-800">
+                  <SelectValue placeholder="Filter by type" />
+                </SelectTrigger>
+                <SelectContent className="bg-white/95 backdrop-blur-md">
+                  <SelectItem value="all">All Types</SelectItem>
+                  <SelectItem value="Monthly">Monthly</SelectItem>
+                  <SelectItem value="3 months">3 Months</SelectItem>
+                  <SelectItem value="6 months">6 Months</SelectItem>
+                  <SelectItem value="12 months">12 Months</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Members Table */}
-      <Card className="glass-card border-white/40">
+      {/* Members List - Mobile Cards */}
+      <div className="block lg:hidden space-y-4">
+        {filteredMembers.map((member) => (
+          <Card key={member.id} className="glass-card border-white/40">
+            <CardContent className="pt-4">
+              <div className="flex items-start justify-between mb-3">
+                <div className="flex-1">
+                  <h3 className="font-semibold text-gray-800 text-lg">{member.name}</h3>
+                  <div className="flex items-center text-gray-600 text-sm mt-1">
+                    <Phone className="h-4 w-4 mr-1" />
+                    {member.phone}
+                  </div>
+                </div>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" className="h-8 w-8 p-0 text-gray-600 hover:bg-white/50">
+                      <MoreVertical className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="bg-white/95 backdrop-blur-md">
+                    <DropdownMenuItem className="flex items-center">
+                      <Eye className="mr-2 h-4 w-4" />
+                      View Profile
+                    </DropdownMenuItem>
+                    <DropdownMenuItem className="flex items-center">
+                      <Edit className="mr-2 h-4 w-4" />
+                      Edit
+                    </DropdownMenuItem>
+                    <DropdownMenuItem className="flex items-center text-red-600">
+                      <Trash2 className="mr-2 h-4 w-4" />
+                      Delete
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4 mb-3">
+                <div>
+                  <p className="text-xs text-gray-500">Membership Type</p>
+                  <p className="text-sm font-medium text-gray-700">{member.membershipType}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500">Status</p>
+                  <div className="mt-1">{getStatusBadge(member.status)}</div>
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4 text-xs text-gray-600">
+                <div>
+                  <span className="font-medium">Started:</span> {new Date(member.startDate).toLocaleDateString('en-IN')}
+                </div>
+                <div>
+                  <span className="font-medium">Expires:</span> {new Date(member.expiryDate).toLocaleDateString('en-IN')}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      {/* Members Table - Desktop */}
+      <Card className="glass-card border-white/40 hidden lg:block">
         <CardHeader>
           <CardTitle className="text-gray-800">
             Members List ({filteredMembers.length})

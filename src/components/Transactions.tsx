@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -25,7 +26,8 @@ import {
   IndianRupee,
   Calendar,
   Filter,
-  MessageCircle
+  MessageCircle,
+  User
 } from 'lucide-react';
 import { useAuth } from './AuthContext';
 import { whatsappService } from '@/services/whatsappService';
@@ -104,13 +106,13 @@ const Transactions = () => {
 
   const getFeeTypeBadge = (feeType: string) => {
     const colors = {
-      'Strength': 'bg-red-500/20 text-red-300 border-red-500/30',
-      'Cardio': 'bg-blue-500/20 text-blue-300 border-blue-500/30',
-      'Cardio + Strength': 'bg-purple-500/20 text-purple-300 border-purple-500/30',
-      'Personal training': 'bg-green-500/20 text-green-300 border-green-500/30'
+      'Strength': 'bg-red-500/20 text-red-700 border-red-500/30',
+      'Cardio': 'bg-blue-500/20 text-blue-700 border-blue-500/30',
+      'Cardio + Strength': 'bg-purple-500/20 text-purple-700 border-purple-500/30',
+      'Personal training': 'bg-green-500/20 text-green-700 border-green-500/30'
     };
     return (
-      <Badge className={colors[feeType as keyof typeof colors] || 'bg-gray-500/20 text-gray-300 border-gray-500/30'}>
+      <Badge className={colors[feeType as keyof typeof colors] || 'bg-gray-500/20 text-gray-700 border-gray-500/30'}>
         {feeType}
       </Badge>
     );
@@ -118,8 +120,8 @@ const Transactions = () => {
 
   const getPaymentMethodBadge = (method: string) => {
     return method === 'Online' ? 
-      <Badge className="bg-green-500/20 text-green-300 border-green-500/30">Online</Badge> :
-      <Badge className="bg-orange-500/20 text-orange-300 border-orange-500/30">Cash</Badge>;
+      <Badge className="bg-green-500/20 text-green-700 border-green-500/30">Online</Badge> :
+      <Badge className="bg-orange-500/20 text-orange-700 border-orange-500/30">Cash</Badge>;
   };
 
   const filteredTransactions = transactions.filter(transaction => {
@@ -169,63 +171,63 @@ const Transactions = () => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col space-y-4 sm:space-y-0 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent mb-2 flex items-center">
-            <CreditCard className="mr-3 h-8 w-8 text-blue-600" />
+          <h1 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent mb-2 flex items-center">
+            <CreditCard className="mr-3 h-6 w-6 sm:h-8 sm:w-8 text-blue-600" />
             Transactions
           </h1>
-          <p className="text-gray-600">
+          <p className="text-gray-600 text-sm sm:text-base">
             Manage member payments with automated WhatsApp confirmations
           </p>
         </div>
-        <Button onClick={handleAddTransaction} className="mt-4 sm:mt-0 premium-button">
+        <Button onClick={handleAddTransaction} className="w-full sm:w-auto premium-button">
           <Plus className="mr-2 h-4 w-4" />
           Add Transaction
         </Button>
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
         <Card className="glass-card border-white/40">
-          <CardContent className="pt-6">
+          <CardContent className="pt-4 sm:pt-6">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-gray-600 text-sm font-medium">Total Transactions</p>
-                <p className="text-3xl font-bold text-gray-800">{filteredTransactions.length}</p>
+                <p className="text-2xl sm:text-3xl font-bold text-gray-800">{filteredTransactions.length}</p>
               </div>
-              <div className="p-3 rounded-xl bg-gradient-to-r from-blue-500 to-blue-600 shadow-lg">
-                <CreditCard className="h-6 w-6 text-white" />
+              <div className="p-2 sm:p-3 rounded-xl bg-gradient-to-r from-blue-500 to-blue-600 shadow-lg">
+                <CreditCard className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
               </div>
             </div>
           </CardContent>
         </Card>
 
         <Card className="glass-card border-white/40">
-          <CardContent className="pt-6">
+          <CardContent className="pt-4 sm:pt-6">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-gray-600 text-sm font-medium">Total Amount</p>
-                <p className="text-3xl font-bold text-gray-800">₹{totalAmount.toLocaleString('en-IN')}</p>
+                <p className="text-2xl sm:text-3xl font-bold text-gray-800">₹{totalAmount.toLocaleString('en-IN')}</p>
               </div>
-              <div className="p-3 rounded-xl bg-gradient-to-r from-green-500 to-green-600 shadow-lg">
-                <IndianRupee className="h-6 w-6 text-white" />
+              <div className="p-2 sm:p-3 rounded-xl bg-gradient-to-r from-green-500 to-green-600 shadow-lg">
+                <IndianRupee className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
               </div>
             </div>
           </CardContent>
         </Card>
 
         <Card className="glass-card border-white/40">
-          <CardContent className="pt-6">
+          <CardContent className="pt-4 sm:pt-6">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-gray-600 text-sm font-medium">WhatsApp Sent</p>
-                <p className="text-3xl font-bold text-gray-800">{filteredTransactions.length}</p>
+                <p className="text-2xl sm:text-3xl font-bold text-gray-800">{filteredTransactions.length}</p>
               </div>
-              <div className="p-3 rounded-xl bg-gradient-to-r from-purple-500 to-purple-600 shadow-lg">
-                <MessageCircle className="h-6 w-6 text-white" />
+              <div className="p-2 sm:p-3 rounded-xl bg-gradient-to-r from-purple-500 to-purple-600 shadow-lg">
+                <MessageCircle className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
               </div>
             </div>
           </CardContent>
@@ -234,8 +236,8 @@ const Transactions = () => {
 
       {/* Filters */}
       <Card className="glass-card border-white/40">
-        <CardContent className="pt-6">
-          <div className="flex flex-col sm:flex-row gap-4">
+        <CardContent className="pt-4 sm:pt-6">
+          <div className="flex flex-col space-y-3 sm:space-y-4 lg:flex-row lg:space-y-0 lg:space-x-4">
             <div className="flex-1">
               <div className="relative">
                 <Search className="absolute left-3 top-3 h-4 w-4 text-gray-500" />
@@ -248,35 +250,78 @@ const Transactions = () => {
               </div>
             </div>
             
-            <Select value={feeTypeFilter} onValueChange={setFeeTypeFilter}>
-              <SelectTrigger className="w-[180px] bg-white/70 border-white/60 text-gray-800">
-                <SelectValue placeholder="Filter by fee type" />
-              </SelectTrigger>
-              <SelectContent className="bg-white/95 backdrop-blur-md">
-                <SelectItem value="all">All Fee Types</SelectItem>
-                <SelectItem value="Strength">Strength</SelectItem>
-                <SelectItem value="Cardio">Cardio</SelectItem>
-                <SelectItem value="Cardio + Strength">Cardio + Strength</SelectItem>
-                <SelectItem value="Personal training">Personal Training</SelectItem>
-              </SelectContent>
-            </Select>
+            <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:flex lg:space-x-4">
+              <Select value={feeTypeFilter} onValueChange={setFeeTypeFilter}>
+                <SelectTrigger className="w-full lg:w-[180px] bg-white/70 border-white/60 text-gray-800">
+                  <SelectValue placeholder="Filter by fee type" />
+                </SelectTrigger>
+                <SelectContent className="bg-white/95 backdrop-blur-md">
+                  <SelectItem value="all">All Fee Types</SelectItem>
+                  <SelectItem value="Strength">Strength</SelectItem>
+                  <SelectItem value="Cardio">Cardio</SelectItem>
+                  <SelectItem value="Cardio + Strength">Cardio + Strength</SelectItem>
+                  <SelectItem value="Personal training">Personal Training</SelectItem>
+                </SelectContent>
+              </Select>
 
-            <Select value={paymentMethodFilter} onValueChange={setPaymentMethodFilter}>
-              <SelectTrigger className="w-[180px] bg-white/70 border-white/60 text-gray-800">
-                <SelectValue placeholder="Payment method" />
-              </SelectTrigger>
-              <SelectContent className="bg-white/95 backdrop-blur-md">
-                <SelectItem value="all">All Methods</SelectItem>
-                <SelectItem value="Cash">Cash</SelectItem>
-                <SelectItem value="Online">Online</SelectItem>
-              </SelectContent>
-            </Select>
+              <Select value={paymentMethodFilter} onValueChange={setPaymentMethodFilter}>
+                <SelectTrigger className="w-full lg:w-[180px] bg-white/70 border-white/60 text-gray-800">
+                  <SelectValue placeholder="Payment method" />
+                </SelectTrigger>
+                <SelectContent className="bg-white/95 backdrop-blur-md">
+                  <SelectItem value="all">All Methods</SelectItem>
+                  <SelectItem value="Cash">Cash</SelectItem>
+                  <SelectItem value="Online">Online</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Transactions Table */}
-      <Card className="glass-card border-white/40">
+      {/* Transaction Cards - Mobile */}
+      <div className="block lg:hidden space-y-4">
+        {filteredTransactions.map((transaction) => (
+          <Card key={transaction.id} className="glass-card border-white/40">
+            <CardContent className="pt-4">
+              <div className="flex items-start justify-between mb-3">
+                <div className="flex-1">
+                  <h3 className="font-semibold text-gray-800 text-lg">{transaction.memberName}</h3>
+                  <p className="text-sm text-gray-600">ID: {transaction.memberId}</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-xl font-bold text-gray-800">₹{transaction.amount.toLocaleString('en-IN')}</p>
+                  <p className="text-xs text-gray-500">{new Date(transaction.date).toLocaleDateString('en-IN')}</p>
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4 mb-3">
+                <div>
+                  <p className="text-xs text-gray-500">Fee Type</p>
+                  <div className="mt-1">{getFeeTypeBadge(transaction.feeType)}</div>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500">Payment Method</p>
+                  <div className="mt-1">{getPaymentMethodBadge(transaction.paymentMethod)}</div>
+                </div>
+              </div>
+              
+              <div className="flex items-center justify-between text-xs text-gray-600">
+                <div className="flex items-center">
+                  <User className="h-3 w-3 mr-1" />
+                  <span>Added by {transaction.addedBy}</span>
+                </div>
+                {transaction.notes && (
+                  <span className="truncate max-w-32">{transaction.notes}</span>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      {/* Transactions Table - Desktop */}
+      <Card className="glass-card border-white/40 hidden lg:block">
         <CardHeader>
           <CardTitle className="text-gray-800">
             Transaction History ({filteredTransactions.length})

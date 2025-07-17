@@ -28,7 +28,8 @@ import {
   TrendingDown,
   Lightbulb,
   Wrench,
-  ShoppingCart
+  ShoppingCart,
+  User
 } from 'lucide-react';
 
 interface Expense {
@@ -112,63 +113,63 @@ const Expenses = () => {
   const totalExpenses = filteredExpenses.reduce((sum, expense) => sum + expense.amount, 0);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col space-y-4 sm:space-y-0 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-800 mb-2 flex items-center">
-            <Receipt className="mr-3 h-8 w-8 text-orange-600" />
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-800 mb-2 flex items-center">
+            <Receipt className="mr-3 h-6 w-6 sm:h-8 sm:w-8 text-orange-600" />
             Expenses Management
           </h1>
-          <p className="text-gray-600">
+          <p className="text-gray-600 text-sm sm:text-base">
             Track and manage all gym operational expenses
           </p>
         </div>
-        <Button className="mt-4 sm:mt-0 premium-button">
+        <Button className="w-full sm:w-auto premium-button">
           <Plus className="mr-2 h-4 w-4" />
           Add Expense
         </Button>
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
         <Card className="glass-card border-white/40">
-          <CardContent className="pt-6">
+          <CardContent className="pt-4 sm:pt-6">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-gray-600 text-sm font-medium">Total Expenses</p>
-                <p className="text-3xl font-bold text-gray-800">₹{totalExpenses.toLocaleString('en-IN')}</p>
+                <p className="text-2xl sm:text-3xl font-bold text-gray-800">₹{totalExpenses.toLocaleString('en-IN')}</p>
               </div>
-              <div className="p-3 rounded-xl bg-gradient-to-r from-orange-500 to-orange-600 shadow-lg">
-                <Receipt className="h-6 w-6 text-white" />
+              <div className="p-2 sm:p-3 rounded-xl bg-gradient-to-r from-orange-500 to-orange-600 shadow-lg">
+                <Receipt className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
               </div>
             </div>
           </CardContent>
         </Card>
 
         <Card className="glass-card border-white/40">
-          <CardContent className="pt-6">
+          <CardContent className="pt-4 sm:pt-6">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-gray-600 text-sm font-medium">This Month</p>
-                <p className="text-3xl font-bold text-gray-800">₹{Math.round(totalExpenses * 0.6).toLocaleString('en-IN')}</p>
+                <p className="text-2xl sm:text-3xl font-bold text-gray-800">₹{Math.round(totalExpenses * 0.6).toLocaleString('en-IN')}</p>
               </div>
-              <div className="p-3 rounded-xl bg-gradient-to-r from-red-500 to-red-600 shadow-lg">
-                <TrendingDown className="h-6 w-6 text-white" />
+              <div className="p-2 sm:p-3 rounded-xl bg-gradient-to-r from-red-500 to-red-600 shadow-lg">
+                <TrendingDown className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
               </div>
             </div>
           </CardContent>
         </Card>
 
         <Card className="glass-card border-white/40">
-          <CardContent className="pt-6">
+          <CardContent className="pt-4 sm:pt-6">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-gray-600 text-sm font-medium">Categories</p>
-                <p className="text-3xl font-bold text-gray-800">{new Set(expenses.map(e => e.category)).size}</p>
+                <p className="text-2xl sm:text-3xl font-bold text-gray-800">{new Set(expenses.map(e => e.category)).size}</p>
               </div>
-              <div className="p-3 rounded-xl bg-gradient-to-r from-purple-500 to-purple-600 shadow-lg">
-                <IndianRupee className="h-6 w-6 text-white" />
+              <div className="p-2 sm:p-3 rounded-xl bg-gradient-to-r from-purple-500 to-purple-600 shadow-lg">
+                <IndianRupee className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
               </div>
             </div>
           </CardContent>
@@ -177,8 +178,8 @@ const Expenses = () => {
 
       {/* Filters */}
       <Card className="glass-card border-white/40">
-        <CardContent className="pt-6">
-          <div className="flex flex-col sm:flex-row gap-4">
+        <CardContent className="pt-4 sm:pt-6">
+          <div className="flex flex-col space-y-3 sm:space-y-4 lg:flex-row lg:space-y-0 lg:space-x-4">
             <div className="flex-1">
               <div className="relative">
                 <Search className="absolute left-3 top-3 h-4 w-4 text-gray-500" />
@@ -192,7 +193,7 @@ const Expenses = () => {
             </div>
             
             <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-              <SelectTrigger className="w-[180px] bg-white/70 border-white/60 text-gray-800">
+              <SelectTrigger className="w-full lg:w-[180px] bg-white/70 border-white/60 text-gray-800">
                 <SelectValue placeholder="Filter by category" />
               </SelectTrigger>
               <SelectContent className="bg-white/95 backdrop-blur-md">
@@ -207,8 +208,41 @@ const Expenses = () => {
         </CardContent>
       </Card>
 
-      {/* Expenses Table */}
-      <Card className="glass-card border-white/40">
+      {/* Expense Cards - Mobile */}
+      <div className="block lg:hidden space-y-4">
+        {filteredExpenses.map((expense) => (
+          <Card key={expense.id} className="glass-card border-white/40">
+            <CardContent className="pt-4">
+              <div className="flex items-start justify-between mb-3">
+                <div className="flex-1">
+                  <h3 className="font-semibold text-gray-800 text-lg">{expense.description}</h3>
+                  <p className="text-xs text-gray-500 mt-1">{new Date(expense.date).toLocaleDateString('en-IN')}</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-xl font-bold text-gray-800">₹{expense.amount.toLocaleString('en-IN')}</p>
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4 mb-3">
+                <div>
+                  <p className="text-xs text-gray-500">Category</p>
+                  <div className="mt-1">{getCategoryBadge(expense.category)}</div>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500">Added By</p>
+                  <div className="flex items-center mt-1">
+                    <User className="h-3 w-3 mr-1 text-gray-600" />
+                    <span className="text-sm text-gray-600">{expense.addedBy}</span>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      {/* Expenses Table - Desktop */}
+      <Card className="glass-card border-white/40 hidden lg:block">
         <CardHeader>
           <CardTitle className="text-gray-800">
             Expense Records ({filteredExpenses.length})

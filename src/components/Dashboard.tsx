@@ -69,32 +69,40 @@ const Dashboard = () => {
   ];
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6 sm:space-y-8">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col space-y-4 sm:space-y-0 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-800 mb-2">
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-800 mb-2">
             Welcome back, {user?.name}!
           </h1>
-          <p className="text-gray-600">
+          <p className="text-gray-600 text-sm sm:text-base">
             Here's what's happening at RangeFitGym today
           </p>
         </div>
-        <div className="mt-4 sm:mt-0">
-          <Badge className="bg-gradient-to-r from-blue-500 to-purple-600 text-white px-3 py-1">
-            <Calendar className="w-4 h-4 mr-2" />
-            {new Date().toLocaleDateString('en-IN', { 
-              weekday: 'long', 
-              year: 'numeric', 
-              month: 'long', 
-              day: 'numeric' 
-            })}
+        <div className="flex justify-center sm:justify-end">
+          <Badge className="bg-gradient-to-r from-blue-500 to-purple-600 text-white px-3 py-1 text-xs sm:text-sm">
+            <Calendar className="w-3 h-3 sm:w-4 sm:h-4 mr-2" />
+            <span className="hidden sm:inline">
+              {new Date().toLocaleDateString('en-IN', { 
+                weekday: 'long', 
+                year: 'numeric', 
+                month: 'long', 
+                day: 'numeric' 
+              })}
+            </span>
+            <span className="sm:hidden">
+              {new Date().toLocaleDateString('en-IN', { 
+                month: 'short', 
+                day: 'numeric' 
+              })}
+            </span>
           </Badge>
         </div>
       </div>
 
       {/* Dashboard Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
         {dashboardCards.map((card, index) => (
           <Card key={index} className="glass-card border-white/40 hover:shadow-xl transition-all duration-200">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -106,7 +114,7 @@ const Dashboard = () => {
               </div>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-gray-800 mb-1">
+              <div className="text-xl sm:text-2xl font-bold text-gray-800 mb-1">
                 {card.value}
               </div>
               <p className="text-xs text-gray-500">
@@ -120,25 +128,25 @@ const Dashboard = () => {
       {/* Quick Actions */}
       <Card className="glass-card border-white/40">
         <CardHeader>
-          <CardTitle className="text-gray-800 flex items-center">
+          <CardTitle className="text-gray-800 flex items-center text-lg sm:text-xl">
             <Activity className="mr-2 h-5 w-5" />
             Quick Actions
           </CardTitle>
-          <CardDescription className="text-gray-600">
+          <CardDescription className="text-gray-600 text-sm">
             Frequently used actions for gym management
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
             {quickActions.map((action, index) => (
               <Button
                 key={index}
                 variant="outline"
-                className="h-20 glass-card border-white/40 text-gray-700 hover:bg-white/80 hover:scale-105 transition-all duration-200"
+                className="h-16 sm:h-20 glass-card border-white/40 text-gray-700 hover:bg-white/80 hover:scale-105 transition-all duration-200 w-full"
               >
                 <div className="flex flex-col items-center space-y-2">
-                  <action.icon className="h-6 w-6" />
-                  <span className="text-sm font-medium">{action.name}</span>
+                  <action.icon className="h-5 w-5 sm:h-6 sm:w-6" />
+                  <span className="text-xs sm:text-sm font-medium">{action.name}</span>
                 </div>
               </Button>
             ))}
@@ -149,27 +157,27 @@ const Dashboard = () => {
       {/* Activity Feed */}
       <Card className="glass-card border-white/40">
         <CardHeader>
-          <CardTitle className="text-gray-800 flex items-center">
+          <CardTitle className="text-gray-800 flex items-center text-lg sm:text-xl">
             <TrendingUp className="mr-2 h-5 w-5" />
             Recent Activity
           </CardTitle>
-          <CardDescription className="text-gray-600">
+          <CardDescription className="text-gray-600 text-sm">
             Latest actions performed by team members
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
+          <div className="space-y-3 sm:space-y-4">
             {recentActivity.map((activity, index) => (
-              <div key={index} className="flex items-center space-x-4 p-3 rounded-lg bg-white/50 hover:bg-white/80 transition-colors border border-white/40">
+              <div key={index} className="flex items-start sm:items-center space-x-3 sm:space-x-4 p-3 rounded-lg bg-white/50 hover:bg-white/80 transition-colors border border-white/40">
                 <div className="flex-shrink-0">
-                  <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
-                    <span className="text-white text-sm font-medium">
+                  <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
+                    <span className="text-white text-xs sm:text-sm font-medium">
                       {activity.user.split(' ').map(n => n[0]).join('')}
                     </span>
                   </div>
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-gray-800 text-sm">
+                  <p className="text-gray-800 text-xs sm:text-sm">
                     <span className="font-medium">{activity.user}</span>
                     <span className="text-gray-600"> {activity.action}</span>
                     {activity.amount && (
@@ -181,18 +189,20 @@ const Dashboard = () => {
                   </p>
                   <p className="text-gray-500 text-xs">{activity.time}</p>
                 </div>
-                <Badge 
-                  variant="outline" 
-                  className={`
-                    text-xs border-gray-200 
-                    ${activity.type === 'transaction' ? 'bg-green-500/20 text-green-700' : ''}
-                    ${activity.type === 'member' ? 'bg-blue-500/20 text-blue-700' : ''}
-                    ${activity.type === 'renewal' ? 'bg-purple-500/20 text-purple-700' : ''}
-                    ${activity.type === 'expense' ? 'bg-orange-500/20 text-orange-700' : ''}
-                  `}
-                >
-                  {activity.type}
-                </Badge>
+                <div className="flex-shrink-0">
+                  <Badge 
+                    variant="outline" 
+                    className={`
+                      text-xs border-gray-200 
+                      ${activity.type === 'transaction' ? 'bg-green-500/20 text-green-700' : ''}
+                      ${activity.type === 'member' ? 'bg-blue-500/20 text-blue-700' : ''}
+                      ${activity.type === 'renewal' ? 'bg-purple-500/20 text-purple-700' : ''}
+                      ${activity.type === 'expense' ? 'bg-orange-500/20 text-orange-700' : ''}
+                    `}
+                  >
+                    {activity.type}
+                  </Badge>
+                </div>
               </div>
             ))}
           </div>
