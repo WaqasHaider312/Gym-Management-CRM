@@ -1,5 +1,5 @@
 // Google Sheets API Service for Gym Management CRM - Production Version
-const GOOGLE_SHEETS_URL = 'https://script.google.com/macros/s/AKfycbznFP1iL8bpJBQ335ihvw76P2OykX6WMQaP7TPtcTEbjjxO3NQVfKVVtwqaxjNrTjC8/exec';
+const GOOGLE_SHEETS_URL = 'https://script.google.com/macros/s/AKfycbxUoEhfl98mEQ_IWekclL5BPDCIV3AtNp-jdARZ-3c93sgKMGl2P6uU2_-dYRklcOJ0/exec';
 
 // ========== UTILITY FUNCTIONS ==========
 const makeRequest = async (url, options = {}) => {
