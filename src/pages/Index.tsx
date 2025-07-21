@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { useAuth } from '../components/AuthContext';
 import LoginPage from '../components/LoginPage';
