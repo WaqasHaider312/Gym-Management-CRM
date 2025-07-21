@@ -1,5 +1,5 @@
 // Google Sheets API Service - JSONP Version (CORS Workaround)
-const GOOGLE_SHEETS_URL = 'https://script.google.com/macros/s/AKfycbywQ9FV-FdMUDlI8-p9GpV5jIpCna1XwJ6_rZGCdWY6aN1GAjIE13jagZ0TiISWjhTN/exec';
+const GOOGLE_SHEETS_URL = 'https://script.google.com/macros/s/AKfycbwttJwHwDJNnC_Xy-DWmhmHEg88LVQF1RNOhOOrwYEaISOA2N_zPTXVpgfd8zZxcuLx/exec';
 
 // ========== JSONP UTILITY FUNCTION ==========
 const makeJSONPRequest = (url) => {
