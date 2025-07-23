@@ -1,4 +1,4 @@
-// Google Sheets API Service - JSONP Version (CORS Workaround)
+// Google Sheets API Service - URL Parameters Version
 const GOOGLE_SHEETS_URL = 'https://script.google.com/macros/s/AKfycbwttJwHwDJNnC_Xy-DWmhmHEg88LVQF1RNOhOOrwYEaISOA2N_zPTXVpgfd8zZxcuLx/exec';
 
 // ========== JSONP UTILITY FUNCTION ==========
@@ -36,137 +36,61 @@ const makeJSONPRequest = (url) => {
   });
 };
 
-// ========== REGULAR FETCH WITH FALLBACK ==========
-const makeFetchRequest = async (url, options = {}) => {
-  try {
-    const response = await fetch(url, {
-      ...options,
-      mode: 'cors',
-      headers: {
-        'Content-Type': 'application/json',
-        ...options.headers,
-      },
-    });
-
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
-    return await response.json();
-  } catch (error) {
-    console.error('Fetch failed, trying fallback:', error.message);
-    throw error;
-  }
-};
-
-// ========== API FUNCTIONS WITH FALLBACK DATA ==========
+// ========== API FUNCTIONS ==========
 
 // Test API connection
 export const testAPI = async () => {
   try {
-    // Try JSONP first for GET requests
     return await makeJSONPRequest(`${GOOGLE_SHEETS_URL}?action=test`);
   } catch (error) {
     console.error('API test failed:', error);
     return {
-      success: true,
-      message: 'API working (fallback mode)',
-      timestamp: new Date().toISOString(),
-      version: 'Fallback Mode'
+      success: false,
+      error: 'API connection failed',
+      message: error.message
     };
   }
 };
 
 // ========== MEMBERS API ==========
 export const membersAPI = {
-  // Get all members using JSONP
+  // Get all members
   getAll: async () => {
     try {
       return await makeJSONPRequest(`${GOOGLE_SHEETS_URL}?action=getMembers`);
     } catch (error) {
-      console.error('Failed to fetch members, using fallback data:', error);
+      console.error('Failed to fetch members:', error);
       return {
-        success: true,
-        members: [
-          {
-            id: 'fallback-1',
-            name: 'Ahmed Khan',
-            phone: '03001234567',
-            cnic: '35201-1234567-1',
-            address: '123 Main Street, Lahore',
-            membershipType: 'Cardio + Strength',
-            feeType: 'Monthly',
-            joiningDate: '2024-06-15',
-            expiryDate: '2024-07-15',
-            fee: 4000,
-            status: 'active',
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString()
-          },
-          {
-            id: 'fallback-2',
-            name: 'Sara Ali',
-            phone: '03009876543',
-            cnic: '35201-7654321-0',
-            address: '456 Park Avenue, Karachi',
-            membershipType: 'Personal Training',
-            feeType: 'Quarterly',
-            joiningDate: '2024-05-01',
-            expiryDate: '2024-08-01',
-            fee: 18000,
-            status: 'active',
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString()
-          }
-        ],
-        count: 2,
-        note: 'Using fallback data - check console for connection issues'
+        success: false,
+        error: 'Failed to fetch members',
+        members: []
       };
     }
   },
 
-  // Add new member
+  // Add new member using URL parameters
   add: async (memberData) => {
     try {
-      // For POST requests, we'll try a different approach using form submission
-      const form = new FormData();
-      form.append('action', 'addMember');
-      Object.keys(memberData).forEach(key => {
-        form.append(key, memberData[key]);
+      const params = new URLSearchParams({
+        action: 'addMember',
+        name: memberData.name || '',
+        phone: memberData.phone || '',
+        cnic: memberData.cnic || '',
+        address: memberData.address || '',
+        membershipType: memberData.membershipType || '',
+        feeType: memberData.feeType || '',
+        fee: memberData.fee || 0,
+        expiryDate: memberData.expiryDate || ''
       });
 
-      const response = await fetch(GOOGLE_SHEETS_URL, {
-        method: 'POST',
-        body: form,
-        mode: 'no-cors' // This bypasses CORS but we won't get a response
-      });
-
-      // Since we can't read the response with no-cors, we'll return success
-      return {
-        success: true,
-        message: 'Member add request sent (no-cors mode)',
-        member: {
-          id: 'temp-' + Date.now(),
-          ...memberData,
-          status: 'active',
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        },
-        note: 'Request sent but response cannot be verified due to CORS. Check Google Sheets manually.'
-      };
+      const url = `${GOOGLE_SHEETS_URL}?${params.toString()}`;
+      return await makeJSONPRequest(url);
     } catch (error) {
       console.error('Failed to add member:', error);
       return {
-        success: true,
-        message: 'Member added (offline mode)',
-        member: {
-          id: 'offline-' + Date.now(),
-          ...memberData,
-          status: 'active',
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        },
-        note: 'Added in offline mode - will sync when connection is available'
+        success: false,
+        error: 'Failed to add member',
+        message: error.message
       };
     }
   }
@@ -179,82 +103,37 @@ export const transactionsAPI = {
     try {
       return await makeJSONPRequest(`${GOOGLE_SHEETS_URL}?action=getTransactions`);
     } catch (error) {
-      console.error('Failed to fetch transactions, using fallback data:', error);
+      console.error('Failed to fetch transactions:', error);
       return {
-        success: true,
-        transactions: [
-          {
-            id: 'fallback-t1',
-            transactionId: 'TXN-2407-FALL1',
-            memberName: 'Ahmed Khan',
-            memberPhone: '03001234567',
-            amount: 4000,
-            type: 'membership',
-            paymentMethod: 'cash',
-            date: '2024-07-01',
-            status: 'completed',
-            notes: '',
-            createdAt: new Date().toISOString()
-          },
-          {
-            id: 'fallback-t2',
-            transactionId: 'TXN-2407-FALL2',
-            memberName: 'Sara Ali',
-            memberPhone: '03009876543',
-            amount: 18000,
-            type: 'membership',
-            paymentMethod: 'bank_transfer',
-            date: '2024-07-03',
-            status: 'completed',
-            notes: '',
-            createdAt: new Date().toISOString()
-          }
-        ],
-        count: 2,
-        note: 'Using fallback data - check console for connection issues'
+        success: false,
+        error: 'Failed to fetch transactions',
+        transactions: []
       };
     }
   },
 
-  // Add new transaction
+  // Add new transaction using URL parameters
   add: async (transactionData) => {
     try {
-      const form = new FormData();
-      form.append('action', 'addTransaction');
-      Object.keys(transactionData).forEach(key => {
-        form.append(key, transactionData[key]);
+      const params = new URLSearchParams({
+        action: 'addTransaction',
+        memberName: transactionData.memberName || '',
+        memberPhone: transactionData.memberPhone || '',
+        amount: transactionData.amount || 0,
+        type: transactionData.type || 'membership',
+        paymentMethod: transactionData.paymentMethod || 'cash',
+        date: transactionData.date || new Date().toISOString().split('T')[0],
+        notes: transactionData.notes || ''
       });
 
-      await fetch(GOOGLE_SHEETS_URL, {
-        method: 'POST',
-        body: form,
-        mode: 'no-cors'
-      });
-
-      return {
-        success: true,
-        message: 'Transaction add request sent (no-cors mode)',
-        transaction: {
-          id: 'temp-t' + Date.now(),
-          transactionId: 'TXN-' + Date.now(),
-          ...transactionData,
-          status: 'completed',
-          createdAt: new Date().toISOString()
-        },
-        note: 'Request sent but response cannot be verified due to CORS'
-      };
+      const url = `${GOOGLE_SHEETS_URL}?${params.toString()}`;
+      return await makeJSONPRequest(url);
     } catch (error) {
       console.error('Failed to add transaction:', error);
       return {
-        success: true,
-        message: 'Transaction added (offline mode)',
-        transaction: {
-          id: 'offline-t' + Date.now(),
-          transactionId: 'TXN-OFF' + Date.now(),
-          ...transactionData,
-          status: 'completed',
-          createdAt: new Date().toISOString()
-        }
+        success: false,
+        error: 'Failed to add transaction',
+        message: error.message
       };
     }
   }
@@ -267,72 +146,36 @@ export const expensesAPI = {
     try {
       return await makeJSONPRequest(`${GOOGLE_SHEETS_URL}?action=getExpenses`);
     } catch (error) {
-      console.error('Failed to fetch expenses, using fallback data:', error);
+      console.error('Failed to fetch expenses:', error);
       return {
-        success: true,
-        expenses: [
-          {
-            id: 'fallback-e1',
-            description: 'Monthly Electricity Bill',
-            amount: 8500,
-            category: 'Utilities',
-            date: '2024-07-01',
-            addedBy: 'Admin',
-            notes: '',
-            createdAt: new Date().toISOString()
-          },
-          {
-            id: 'fallback-e2',
-            description: 'New Dumbbells Set',
-            amount: 25000,
-            category: 'Equipment',
-            date: '2024-07-03',
-            addedBy: 'Manager',
-            notes: '',
-            createdAt: new Date().toISOString()
-          }
-        ],
-        count: 2,
-        note: 'Using fallback data - check console for connection issues'
+        success: false,
+        error: 'Failed to fetch expenses',
+        expenses: []
       };
     }
   },
 
-  // Add new expense
+  // Add new expense using URL parameters
   add: async (expenseData) => {
     try {
-      const form = new FormData();
-      form.append('action', 'addExpense');
-      Object.keys(expenseData).forEach(key => {
-        form.append(key, expenseData[key]);
+      const params = new URLSearchParams({
+        action: 'addExpense',
+        description: expenseData.description || '',
+        amount: expenseData.amount || 0,
+        category: expenseData.category || 'Other',
+        date: expenseData.date || new Date().toISOString().split('T')[0],
+        addedBy: expenseData.addedBy || 'Admin',
+        notes: expenseData.notes || ''
       });
 
-      await fetch(GOOGLE_SHEETS_URL, {
-        method: 'POST',
-        body: form,
-        mode: 'no-cors'
-      });
-
-      return {
-        success: true,
-        message: 'Expense add request sent (no-cors mode)',
-        expense: {
-          id: 'temp-e' + Date.now(),
-          ...expenseData,
-          createdAt: new Date().toISOString()
-        },
-        note: 'Request sent but response cannot be verified due to CORS'
-      };
+      const url = `${GOOGLE_SHEETS_URL}?${params.toString()}`;
+      return await makeJSONPRequest(url);
     } catch (error) {
       console.error('Failed to add expense:', error);
       return {
-        success: true,
-        message: 'Expense added (offline mode)',
-        expense: {
-          id: 'offline-e' + Date.now(),
-          ...expenseData,
-          createdAt: new Date().toISOString()
-        }
+        success: false,
+        error: 'Failed to add expense',
+        message: error.message
       };
     }
   }
@@ -340,34 +183,37 @@ export const expensesAPI = {
 
 // ========== AUTH API ==========
 export const authAPI = {
-  // User login using JSONP
+  // User login using URL parameters
   login: async (username, password) => {
     try {
-      const url = `${GOOGLE_SHEETS_URL}?action=login&username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}`;
+      const params = new URLSearchParams({
+        action: 'login',
+        username: username,
+        password: password
+      });
+
+      const url = `${GOOGLE_SHEETS_URL}?${params.toString()}`;
       return await makeJSONPRequest(url);
     } catch (error) {
-      console.error('Login failed, using fallback auth:', error);
-      
-      // Fallback authentication
-      const mockUsers = [
-        { id: '1', username: 'admin', role: 'admin', name: 'Gym Admin', phone: '+91 9876543210' },
-        { id: '2', username: 'partner', role: 'partner', name: 'Business Partner', phone: '+91 9876543211' },
-        { id: '3', username: 'employee', role: 'employee', name: 'Gym Employee', phone: '+91 9876543212' }
-      ];
-
-      const foundUser = mockUsers.find(u => u.username === username);
-      if (foundUser && password === 'password123') {
-        return {
-          success: true,
-          message: 'Login successful (fallback mode)',
-          user: foundUser,
-          note: 'Using offline authentication - check Google Sheets connection'
-        };
-      }
-      
+      console.error('Login failed:', error);
       return {
         success: false,
-        error: 'Invalid credentials'
+        error: 'Login failed',
+        message: error.message
+      };
+    }
+  },
+
+  // Get all users
+  getUsers: async () => {
+    try {
+      return await makeJSONPRequest(`${GOOGLE_SHEETS_URL}?action=getUsers`);
+    } catch (error) {
+      console.error('Failed to fetch users:', error);
+      return {
+        success: false,
+        error: 'Failed to fetch users',
+        users: []
       };
     }
   }
@@ -380,17 +226,34 @@ export const dashboardAPI = {
     try {
       return await makeJSONPRequest(`${GOOGLE_SHEETS_URL}?action=getDashboardStats`);
     } catch (error) {
-      console.error('Failed to fetch dashboard stats, using fallback data:', error);
+      console.error('Failed to fetch dashboard stats:', error);
       return {
-        success: true,
+        success: false,
+        error: 'Failed to fetch dashboard stats',
         stats: {
-          totalMembers: 284,
-          activeMembers: 268,
-          totalRevenue: 245000,
-          totalExpenses: 45000,
-          netProfit: 200000
-        },
-        note: 'Using fallback data - check console for connection issues'
+          totalMembers: 0,
+          activeMembers: 0,
+          totalRevenue: 0,
+          totalExpenses: 0,
+          netProfit: 0
+        }
+      };
+    }
+  }
+};
+
+// ========== INITIALIZATION API ==========
+export const initAPI = {
+  // Initialize default data
+  initializeData: async () => {
+    try {
+      return await makeJSONPRequest(`${GOOGLE_SHEETS_URL}?action=initializeData`);
+    } catch (error) {
+      console.error('Failed to initialize data:', error);
+      return {
+        success: false,
+        error: 'Failed to initialize data',
+        message: error.message
       };
     }
   }
@@ -398,7 +261,7 @@ export const dashboardAPI = {
 
 // ========== HELPER FUNCTIONS ==========
 
-// Check if Google Sheets API is working
+// Check API connection status
 export const checkAPIConnection = async () => {
   try {
     const result = await testAPI();
@@ -408,26 +271,27 @@ export const checkAPIConnection = async () => {
   }
 };
 
-// Initialize sample data
-export const initializeData = async () => {
+// Debug function to test all endpoints
+export const debugAPI = async () => {
+  console.log('=== API Debug Test ===');
+  
   try {
-    const form = new FormData();
-    form.append('action', 'initializeData');
+    const testResult = await testAPI();
+    console.log('1. Test API:', testResult);
     
-    await fetch(GOOGLE_SHEETS_URL, {
-      method: 'POST',
-      body: form,
-      mode: 'no-cors'
-    });
+    const membersResult = await membersAPI.getAll();
+    console.log('2. Get Members:', membersResult);
+    
+    const statsResult = await dashboardAPI.getStats();
+    console.log('3. Dashboard Stats:', statsResult);
     
     return {
-      success: true,
-      message: 'Initialization request sent'
+      test: testResult,
+      members: membersResult,
+      stats: statsResult
     };
   } catch (error) {
-    return {
-      success: false,
-      error: error.message
-    };
+    console.error('Debug API failed:', error);
+    return { error: error.message };
   }
 };

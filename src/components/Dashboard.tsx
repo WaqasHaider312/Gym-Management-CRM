@@ -115,7 +115,7 @@ const Dashboard = () => {
         {dashboardCards.map((card, index) => (
           <Card 
             key={index} 
-            className="glass-card border-white/40 hover:shadow-xl transition-all duration-300 hover:scale-[1.02] animate-in fade-in-50 duration-300"
+            className="glass-card border-white/40 hover:shadow-xl transition-all duration-300 hover:scale-[1.02] animate-in fade-in-50"
             style={{ animationDelay: `${index * 75}ms` }}
           >
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 sm:pb-2 pt-3 sm:pt-4 px-3 sm:px-4">
