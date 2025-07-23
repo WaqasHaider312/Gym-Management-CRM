@@ -1,6 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-
-const GOOGLE_SHEETS_URL = 'https://script.google.com/macros/s/AKfycbznFP1iL8bpJBQ335ihvw76P2OykX6WMQaP7TPtcTEbjjxO3NQVfKVVtwqaxjNrTjC8/exec';
+import { authAPI } from '@/services/googleSheetsAPI'; // Import the new API
 
 interface User {
   id: string;
@@ -25,35 +24,6 @@ export const useAuth = () => {
     throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;
-};
-
-// Google Sheets API functions
-const loginToGoogleSheets = async (username: string, password: string) => {
-  try {
-    const response = await fetch(GOOGLE_SHEETS_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      mode: 'cors',
-      body: JSON.stringify({
-        action: 'login',
-        username,
-        password
-      }),
-    });
-
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
-    const data = await response.json();
-    return data;
-  } catch (error) {
-    console.error('Google Sheets login error:', error);
-    // Fallback to mock users if Google Sheets fails
-    return mockLogin(username, password);
-  }
 };
 
 // Fallback mock login for development/offline use
@@ -98,7 +68,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const login = async (username: string, password: string, rememberMe: boolean): Promise<boolean> => {
     try {
-      const result = await loginToGoogleSheets(username, password);
+      // Use the new JSONP API
+      const result = await authAPI.login(username, password);
       
       if (result.success && result.user) {
         const userData: User = {
@@ -117,11 +88,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         
         return true;
       } else {
-        console.error('Login failed:', result.error);
+        console.error('Login failed, using fallback:', result.error);
+        // Try fallback login
+        const fallbackResult = mockLogin(username, password);
+        if (fallbackResult.success && fallbackResult.user) {
+          setUser(fallbackResult.user);
+          if (rememberMe) {
+            localStorage.setItem('gym_user', JSON.stringify(fallbackResult.user));
+          }
+          return true;
+        }
         return false;
       }
     } catch (error) {
-      console.error('Login error:', error);
+      console.error('Login error, using fallback:', error);
+      // Try fallback login
+      const fallbackResult = mockLogin(username, password);
+      if (fallbackResult.success && fallbackResult.user) {
+        setUser(fallbackResult.user);
+        if (rememberMe) {
+          localStorage.setItem('gym_user', JSON.stringify(fallbackResult.user));
+        }
+        return true;
+      }
       return false;
     }
   };

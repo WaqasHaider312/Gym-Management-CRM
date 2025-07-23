@@ -20,6 +20,28 @@ import { useAuth } from './AuthContext';
 import { toast } from '@/hooks/use-toast';
 import { useNavigate } from 'react-router-dom';
 
+// Add this import at the top
+import { testAPI, membersAPI } from '@/services/googleSheetsAPI';
+
+// Add this button temporarily in your Dashboard component
+<Button onClick={async () => {
+  console.log('Testing API...');
+  try {
+    const testResult = await testAPI();
+    console.log('Test result:', testResult);
+    
+    const membersResult = await membersAPI.getAll();
+    console.log('Members result:', membersResult);
+    
+    alert('Check console for results');
+  } catch (error) {
+    console.error('Test failed:', error);
+    alert('Test failed: ' + error.message);
+  }
+}}>
+  🧪 Test API Connection
+</Button>
+
 const Dashboard = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
