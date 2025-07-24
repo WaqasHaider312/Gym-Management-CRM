@@ -1,5 +1,5 @@
 // Google Sheets API Service - Fixed URL Construction
-const GOOGLE_SHEETS_URL = 'https://script.google.com/macros/s/AKfycbwttJwHwDJNnC_Xy-DWmhmHEg88LVQF1RNOhOOrwYEaISOA2N_zPTXVpgfd8zZxcuLx/exec';
+const GOOGLE_SHEETS_URL = 'https://script.google.com/macros/s/AKfycbyb9TRolX2tBRU-stXMEPNqa4I2FkkhcCBkvCtPeWjlcG-w9w5F5zxvq6iBoTtMxBA/exec';
 
 // ========== JSONP UTILITY FUNCTION ==========
 // ========== SIMPLER JSONP FUNCTION ==========
