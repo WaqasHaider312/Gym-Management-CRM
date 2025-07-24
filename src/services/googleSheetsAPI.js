@@ -1,5 +1,5 @@
 // Google Sheets API Service - Fixed URL Construction
-const GOOGLE_SHEETS_URL = 'https://script.google.com/macros/s/AKfycbxYy2JmkdZz5LZlh00VpvbuG6NLxdF9abQmsC5VDSFKDmfAXjZVGaWxVVU5oOok8Rkk/exec';
+const GOOGLE_SHEETS_URL = 'https://script.google.com/macros/s/AKfycbw-kCeEO-omTGbPKHGftJsFt72UMeL0vH6-0HWYn16koxrLYLwD9BI1kL-MFTMiacmk/exec';
 
 // ========== JSONP UTILITY FUNCTION ==========
 // ========== SIMPLER JSONP FUNCTION ==========
@@ -200,28 +200,44 @@ export const expensesAPI = {
 
 // ========== AUTH API ==========
 export const authAPI = {
-  // User login using POST request
+  // User login using JSONP (bypasses CORS)
   login: async (username, password) => {
     try {
-      const response = await fetch(GOOGLE_SHEETS_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          action: 'authenticateUser',
-          username: username,
-          password: password
-        })
+      const params = new URLSearchParams();
+      params.append('action', 'authenticateUser');
+      params.append('username', username);
+      params.append('password', password);
+      params.append('callback', 'handleAuthResponse');
+
+      const url = `${GOOGLE_SHEETS_URL}?${params.toString()}`;
+      console.log('Login attempt to:', url);
+      
+      return new Promise((resolve, reject) => {
+        // Create callback function
+        window.handleAuthResponse = (data) => {
+          delete window.handleAuthResponse;
+          resolve(data);
+        };
+
+        // Create script tag for JSONP
+        const script = document.createElement('script');
+        script.src = url;
+        script.onerror = () => {
+          delete window.handleAuthResponse;
+          reject(new Error('Network error'));
+        };
+        
+        document.head.appendChild(script);
+        
+        // Cleanup after timeout
+        setTimeout(() => {
+          if (window.handleAuthResponse) {
+            delete window.handleAuthResponse;
+            document.head.removeChild(script);
+            reject(new Error('Request timeout'));
+          }
+        }, 10000);
       });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const result = await response.json();
-      console.log('Login response:', result);
-      return result;
     } catch (error) {
       console.error('Login failed:', error);
       return {
@@ -232,43 +248,81 @@ export const authAPI = {
     }
   },
 
-  // Get all users (admin only)
+  // Get all users (admin only) - using JSONP
   getUsers: async () => {
     try {
-      const response = await fetch(GOOGLE_SHEETS_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          action: 'getUsers'
-        })
-      });
+      const params = new URLSearchParams();
+      params.append('action', 'getUsers');
+      params.append('callback', 'handleUsersResponse');
 
-      const result = await response.json();
-      return result;
+      const url = `${GOOGLE_SHEETS_URL}?${params.toString()}`;
+      
+      return new Promise((resolve, reject) => {
+        window.handleUsersResponse = (data) => {
+          delete window.handleUsersResponse;
+          resolve(data);
+        };
+
+        const script = document.createElement('script');
+        script.src = url;
+        script.onerror = () => {
+          delete window.handleUsersResponse;
+          reject(new Error('Network error'));
+        };
+        
+        document.head.appendChild(script);
+        
+        setTimeout(() => {
+          if (window.handleUsersResponse) {
+            delete window.handleUsersResponse;
+            document.head.removeChild(script);
+            reject(new Error('Request timeout'));
+          }
+        }, 10000);
+      });
     } catch (error) {
       console.error('Error fetching users:', error);
       return { success: false, error: error.message };
     }
   },
 
-  // Add new user (admin only)
+  // Add new user (admin only) - using JSONP with URL params
   add: async (userData) => {
     try {
-      const response = await fetch(GOOGLE_SHEETS_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          action: 'addUser',
-          userData: userData
-        })
-      });
+      const params = new URLSearchParams();
+      params.append('action', 'addUser');
+      params.append('username', userData.username);
+      params.append('password', userData.password);
+      params.append('role', userData.role);
+      params.append('name', userData.name);
+      params.append('phone', userData.phone || '');
+      params.append('callback', 'handleAddUserResponse');
 
-      const result = await response.json();
-      return result;
+      const url = `${GOOGLE_SHEETS_URL}?${params.toString()}`;
+      
+      return new Promise((resolve, reject) => {
+        window.handleAddUserResponse = (data) => {
+          delete window.handleAddUserResponse;
+          resolve(data);
+        };
+
+        const script = document.createElement('script');
+        script.src = url;
+        script.onerror = () => {
+          delete window.handleAddUserResponse;
+          reject(new Error('Network error'));
+        };
+        
+        document.head.appendChild(script);
+        
+        setTimeout(() => {
+          if (window.handleAddUserResponse) {
+            delete window.handleAddUserResponse;
+            document.head.removeChild(script);
+            reject(new Error('Request timeout'));
+          }
+        }, 10000);
+      });
     } catch (error) {
       console.error('Error adding user:', error);
       return { success: false, error: error.message };
