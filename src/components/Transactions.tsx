@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -56,23 +56,29 @@ import {
   ArrowUpRight,
   Check,
   Loader2,
-  Send
+  Send,
+  RefreshCw,
+  AlertCircle
 } from 'lucide-react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import * as z from 'zod';
 import { toast } from '@/hooks/use-toast';
 import { whatsappService } from '@/services/whatsappService';
+import { transactionsAPI } from '@/services/googleSheetsAPI';
 
 interface Transaction {
   id: string;
   transactionId: string;
   memberName: string;
+  memberPhone?: string;
   amount: number;
   type: 'membership' | 'admission' | 'personal_training' | 'supplement' | 'other';
   paymentMethod: 'cash' | 'card' | 'bank_transfer' | 'mobile_wallet';
   date: string;
   status: 'completed' | 'pending' | 'failed';
+  notes?: string;
+  createdAt?: string;
 }
 
 const transactionFormSchema = z.object({
@@ -91,6 +97,11 @@ const transactionFormSchema = z.object({
 });
 
 const Transactions = () => {
+  // State management
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [typeFilter, setTypeFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -114,48 +125,39 @@ const Transactions = () => {
     },
   });
 
-  const transactions: Transaction[] = [
-    {
-      id: '1',
-      transactionId: 'TXN-2407-0001',
-      memberName: 'Ahmed Khan',
-      amount: 4000,
-      type: 'membership',
-      paymentMethod: 'cash',
-      date: '2024-07-01',
-      status: 'completed'
-    },
-    {
-      id: '2',
-      transactionId: 'TXN-2407-0002',
-      memberName: 'Sara Ali',
-      amount: 18000,
-      type: 'membership',
-      paymentMethod: 'bank_transfer',
-      date: '2024-07-03',
-      status: 'completed'
-    },
-    {
-      id: '3',
-      transactionId: 'TXN-2407-0003',
-      memberName: 'Zain Ahmed',
-      amount: 2500,
-      type: 'supplement',
-      paymentMethod: 'mobile_wallet',
-      date: '2024-07-05',
-      status: 'completed'
-    },
-    {
-      id: '4',
-      transactionId: 'TXN-2407-0004',
-      memberName: 'Fatima Malik',
-      amount: 6000,
-      type: 'personal_training',
-      paymentMethod: 'card',
-      date: '2024-07-06',
-      status: 'pending'
+  // Fetch transactions from Google Sheets
+  const fetchTransactions = async (showRefreshLoader = false) => {
+    try {
+      if (showRefreshLoader) {
+        setIsRefreshing(true);
+      } else {
+        setIsLoading(true);
+      }
+      setError(null);
+
+      console.log('Fetching transactions from Google Sheets...');
+      const response = await transactionsAPI.getAll();
+      
+      if (response.success) {
+        console.log('Transactions fetched successfully:', response.transactions);
+        setTransactions(response.transactions || []);
+      } else {
+        console.error('Failed to fetch transactions:', response.error);
+        setError(response.error || 'Failed to fetch transactions');
+      }
+    } catch (error) {
+      console.error('Error fetching transactions:', error);
+      setError('Network error: Unable to fetch transactions');
+    } finally {
+      setIsLoading(false);
+      setIsRefreshing(false);
     }
-  ];
+  };
+
+  // Load transactions on component mount
+  useEffect(() => {
+    fetchTransactions();
+  }, []);
 
   const getTypeBadge = (type: string) => {
     const colors: Record<string, string> = {
@@ -210,57 +212,118 @@ const Transactions = () => {
     return matchesSearch && matchesType && matchesStatus;
   });
 
-  const totalTransactions = filteredTransactions.reduce((sum, transaction) => sum + transaction.amount, 0);
+  // Calculate statistics from real data
+  const totalTransactions = filteredTransactions.reduce((sum, transaction) => sum + (transaction.amount || 0), 0);
+  const thisMonthTransactions = transactions.filter(t => {
+    const transactionDate = new Date(t.date);
+    const currentMonth = new Date().getMonth();
+    const currentYear = new Date().getFullYear();
+    return transactionDate.getMonth() === currentMonth && transactionDate.getFullYear() === currentYear;
+  }).reduce((sum, t) => sum + (t.amount || 0), 0);
 
   const onSubmit = async (data: z.infer<typeof transactionFormSchema>) => {
     setIsSubmitting(true);
     
     try {
-      // Simulate API call with a delay
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      console.log('Submitting transaction data:', data);
       
-      console.log('Transaction form submitted:', data);
+      // Prepare transaction data for API
+      const transactionData = {
+        memberName: data.memberName,
+        memberPhone: data.memberPhone,
+        amount: parseFloat(data.amount),
+        type: data.type,
+        paymentMethod: data.paymentMethod,
+        date: data.date,
+        notes: data.notes || '',
+        status: 'completed'
+      };
+
+      // Submit to Google Sheets
+      const response = await transactionsAPI.add(transactionData);
       
-      // Send WhatsApp receipt if toggled
-      if (data.sendReceipt) {
-        try {
-          await whatsappService.sendMemberReceipt(
-            data.memberName,
-            data.memberPhone,
-            data.type.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
-            parseFloat(data.amount),
-            new Date().toLocaleDateString('en-US')
-          );
-          
-          console.log('WhatsApp receipt sent');
-        } catch (error) {
-          console.error('Failed to send WhatsApp receipt:', error);
+      if (response.success) {
+        console.log('Transaction added successfully:', response.transaction);
+        
+        // Send WhatsApp receipt if toggled
+        if (data.sendReceipt) {
+          try {
+            await whatsappService.sendMemberReceipt(
+              data.memberName,
+              data.memberPhone,
+              data.type.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
+              parseFloat(data.amount),
+              new Date().toLocaleDateString('en-US')
+            );
+            
+            console.log('WhatsApp receipt sent');
+          } catch (error) {
+            console.error('Failed to send WhatsApp receipt:', error);
+          }
         }
+        
+        // Close dialog and show success
+        setIsAddTransactionDialogOpen(false);
+        setIsSuccessDialogOpen(true);
+        
+        // Show toast notification
+        toast({
+          title: "Transaction Added Successfully",
+          description: `Rs. ${data.amount} transaction for ${data.memberName} has been recorded.`,
+        });
+        
+        // Refresh transactions list
+        await fetchTransactions();
+        
+        // Reset form
+        form.reset();
+      } else {
+        throw new Error(response.error || 'Failed to add transaction');
       }
-      
-      // Close dialog and show success
-      setIsAddTransactionDialogOpen(false);
-      setIsSuccessDialogOpen(true);
-      
-      // Show toast notification
-      toast({
-        title: "Transaction Added Successfully",
-        description: `Rs. ${data.amount} transaction for ${data.memberName} has been recorded.`,
-      });
-      
-      // Reset form
-      form.reset();
     } catch (error) {
       console.error('Error submitting form:', error);
       toast({
         title: "Error Adding Transaction",
-        description: "There was a problem adding the transaction. Please try again.",
+        description: error instanceof Error ? error.message : "There was a problem adding the transaction. Please try again.",
         variant: "destructive",
       });
     } finally {
       setIsSubmitting(false);
     }
   };
+
+  // Loading state
+  if (isLoading) {
+    return (
+      <div className="space-y-4 sm:space-y-6">
+        <div className="flex items-center justify-center py-12">
+          <div className="text-center">
+            <Loader2 className="h-8 w-8 animate-spin text-blue-600 mx-auto mb-4" />
+            <p className="text-gray-600">Loading transactions from Google Sheets...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <div className="space-y-4 sm:space-y-6">
+        <div className="flex items-center justify-center py-12">
+          <div className="text-center">
+            <AlertCircle className="h-8 w-8 text-red-600 mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-gray-800 mb-2">Failed to Load Transactions</h3>
+            <p className="text-gray-600 mb-4">{error}</p>
+            <Button onClick={() => fetchTransactions()} className="bg-blue-600 hover:bg-blue-700">
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Try Again
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4 sm:space-y-6">
@@ -275,16 +338,30 @@ const Transactions = () => {
             Track and manage all financial transactions
           </p>
         </div>
-        <Button 
-          onClick={() => setIsAddTransactionDialogOpen(true)} 
-          className="w-full sm:w-auto premium-button transition-transform duration-200 hover:scale-105"
-        >
-          <Plus className="mr-2 h-4 w-4" />
-          Add Transaction
-        </Button>
+        <div className="flex gap-2">
+          <Button 
+            onClick={() => fetchTransactions(true)} 
+            variant="outline"
+            disabled={isRefreshing}
+            className="bg-white/60 hover:bg-white"
+          >
+            {isRefreshing ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <RefreshCw className="h-4 w-4" />
+            )}
+          </Button>
+          <Button 
+            onClick={() => setIsAddTransactionDialogOpen(true)} 
+            className="w-full sm:w-auto premium-button transition-transform duration-200 hover:scale-105"
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            Add Transaction
+          </Button>
+        </div>
       </div>
 
-      {/* Summary Cards */}
+      {/* Summary Cards - Using Real Data */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 md:gap-6">
         <Card className="glass-card border-white/40 hover:shadow-xl transition-all duration-200">
           <CardContent className="pt-4 sm:pt-6">
@@ -305,7 +382,7 @@ const Transactions = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-gray-600 text-sm font-medium">This Month</p>
-                <p className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-800">Rs.{Math.round(totalTransactions * 0.8).toLocaleString('en-US')}</p>
+                <p className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-800">Rs.{thisMonthTransactions.toLocaleString('en-US')}</p>
               </div>
               <div className="p-2 sm:p-3 rounded-xl bg-gradient-to-r from-green-500 to-green-600 shadow-lg">
                 <TrendingUp className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-white" />
@@ -404,8 +481,15 @@ const Transactions = () => {
               {filteredTransactions.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-12">
                   <CreditCard className="h-12 w-12 text-gray-400 mb-4" />
-                  <h3 className="text-lg font-medium text-gray-700">No transactions found 📭</h3>
-                  <p className="text-gray-500 mt-1">Try adjusting your search or filters</p>
+                  <h3 className="text-lg font-medium text-gray-700">
+                    {transactions.length === 0 ? 'No transactions yet' : 'No transactions found'}
+                  </h3>
+                  <p className="text-gray-500 mt-1">
+                    {transactions.length === 0 
+                      ? 'Add your first transaction to get started' 
+                      : 'Try adjusting your search or filters'
+                    }
+                  </p>
                 </div>
               ) : (
                 <Table>
@@ -427,11 +511,11 @@ const Transactions = () => {
                         <TableCell className="text-gray-800">{transaction.memberName}</TableCell>
                         <TableCell>{getTypeBadge(transaction.type)}</TableCell>
                         <TableCell className="text-gray-800 font-semibold">
-                          Rs.{transaction.amount.toLocaleString('en-US')}
+                          Rs.{transaction.amount ? transaction.amount.toLocaleString('en-US') : '0'}
                         </TableCell>
                         <TableCell className="text-gray-700">{getPaymentMethodDisplay(transaction.paymentMethod)}</TableCell>
                         <TableCell className="text-gray-600">
-                          {new Date(transaction.date).toLocaleDateString('en-US')}
+                          {transaction.date ? new Date(transaction.date).toLocaleDateString('en-US') : 'N/A'}
                         </TableCell>
                         <TableCell>{getStatusBadge(transaction.status)}</TableCell>
                       </TableRow>
@@ -447,8 +531,15 @@ const Transactions = () => {
             {filteredTransactions.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-8 bg-white/50 rounded-lg">
                 <CreditCard className="h-10 w-10 text-gray-400 mb-3" />
-                <h3 className="text-base font-medium text-gray-700">No transactions found 📭</h3>
-                <p className="text-gray-500 mt-1 text-sm">Try adjusting your search or filters</p>
+                <h3 className="text-base font-medium text-gray-700">
+                  {transactions.length === 0 ? 'No transactions yet 📭' : 'No transactions found 📭'}
+                </h3>
+                <p className="text-gray-500 mt-1 text-sm">
+                  {transactions.length === 0 
+                    ? 'Add your first transaction to get started' 
+                    : 'Try adjusting your search or filters'
+                  }
+                </p>
               </div>
             ) : (
               filteredTransactions.map((transaction) => (
@@ -466,7 +557,9 @@ const Transactions = () => {
                     
                     <div className="mt-3 flex justify-between items-center">
                       <div>{getTypeBadge(transaction.type)}</div>
-                      <div className="text-lg font-bold text-gray-800">Rs.{transaction.amount.toLocaleString('en-US')}</div>
+                      <div className="text-lg font-bold text-gray-800">
+                        Rs.{transaction.amount ? transaction.amount.toLocaleString('en-US') : '0'}
+                      </div>
                     </div>
                     
                     <div className="grid grid-cols-2 gap-3 mt-4">
@@ -476,7 +569,9 @@ const Transactions = () => {
                       </div>
                       <div className="bg-white/40 p-2 rounded-md">
                         <p className="text-xs text-gray-500">Date</p>
-                        <p className="text-sm font-medium text-gray-700">{new Date(transaction.date).toLocaleDateString('en-US')}</p>
+                        <p className="text-sm font-medium text-gray-700">
+                          {transaction.date ? new Date(transaction.date).toLocaleDateString('en-US') : 'N/A'}
+                        </p>
                       </div>
                     </div>
                     
@@ -508,8 +603,15 @@ const Transactions = () => {
           {filteredTransactions.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 bg-white/50 rounded-lg">
               <CreditCard className="h-12 w-12 text-gray-400 mb-4" />
-              <h3 className="text-lg font-medium text-gray-700">No transactions found 📭</h3>
-              <p className="text-gray-500 mt-1">Try adjusting your search or filters</p>
+              <h3 className="text-lg font-medium text-gray-700">
+                {transactions.length === 0 ? 'No transactions yet 📭' : 'No transactions found 📭'}
+              </h3>
+              <p className="text-gray-500 mt-1">
+                {transactions.length === 0 
+                  ? 'Add your first transaction to get started' 
+                  : 'Try adjusting your search or filters'
+                }
+              </p>
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -528,7 +630,9 @@ const Transactions = () => {
                     
                     <div className="flex justify-between items-center mb-3">
                       <div>{getTypeBadge(transaction.type)}</div>
-                      <div className="text-xl font-bold text-gray-800">Rs.{transaction.amount.toLocaleString('en-US')}</div>
+                      <div className="text-xl font-bold text-gray-800">
+                        Rs.{transaction.amount ? transaction.amount.toLocaleString('en-US') : '0'}
+                      </div>
                     </div>
                     
                     <div className="grid grid-cols-2 gap-2 mb-3">
@@ -539,7 +643,7 @@ const Transactions = () => {
                       <div className="text-xs">
                         <p className="text-gray-500">Date</p>
                         <p className="text-gray-800 font-medium">
-                          {new Date(transaction.date).toLocaleDateString('en-US')}
+                          {transaction.date ? new Date(transaction.date).toLocaleDateString('en-US') : 'N/A'}
                         </p>
                       </div>
                     </div>
@@ -791,7 +895,7 @@ const Transactions = () => {
                   {isSubmitting ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Processing...
+                      Adding to Google Sheets...
                     </>
                   ) : (
                     <>
@@ -817,7 +921,7 @@ const Transactions = () => {
               Transaction Added Successfully!
             </DialogTitle>
             <DialogDescription className="text-gray-600 text-center mt-2">
-              The transaction has been recorded in the system.
+              The transaction has been recorded in your Google Sheets database.
               {isReceiptToggled && (
                 <div className="flex items-center justify-center mt-2 text-green-600">
                   <Send className="h-4 w-4 mr-1" />

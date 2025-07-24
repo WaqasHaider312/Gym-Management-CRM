@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -46,12 +46,16 @@ import {
   Wrench,
   ShoppingCart,
   Check,
-  Loader2
+  Loader2,
+  RefreshCw,
+  AlertCircle
 } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { toast } from '@/hooks/use-toast';
+import { expensesAPI } from '@/services/googleSheetsAPI';
+import { useAuth } from './AuthContext';
 
 interface Expense {
   id: string;
@@ -60,7 +64,9 @@ interface Expense {
   category: string;
   date: string;
   addedBy: string;
+  notes?: string;
   receipt?: string;
+  createdAt?: string;
 }
 
 const expenseFormSchema = z.object({
@@ -74,6 +80,13 @@ const expenseFormSchema = z.object({
 });
 
 const Expenses = () => {
+  const { user } = useAuth();
+  
+  // State management
+  const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [isAddExpenseDialogOpen, setIsAddExpenseDialogOpen] = useState(false);
@@ -92,50 +105,50 @@ const Expenses = () => {
     },
   });
 
-  const expenses: Expense[] = [
-    {
-      id: '1',
-      description: 'Monthly Electricity Bill',
-      amount: 8500,
-      category: 'Utilities',
-      date: '2024-07-01',
-      addedBy: 'Admin'
-    },
-    {
-      id: '2',
-      description: 'New Dumbbells Set',
-      amount: 25000,
-      category: 'Equipment',
-      date: '2024-07-03',
-      addedBy: 'Manager'
-    },
-    {
-      id: '3',
-      description: 'Cleaning Supplies',
-      amount: 1200,
-      category: 'Maintenance',
-      date: '2024-07-05',
-      addedBy: 'Staff'
-    },
-    {
-      id: '4',
-      description: 'Internet & WiFi',
-      amount: 2500,
-      category: 'Utilities',
-      date: '2024-07-06',
-      addedBy: 'Admin'
+  // Fetch expenses from Google Sheets
+  const fetchExpenses = async (showRefreshLoader = false) => {
+    try {
+      if (showRefreshLoader) {
+        setIsRefreshing(true);
+      } else {
+        setIsLoading(true);
+      }
+      setError(null);
+
+      console.log('Fetching expenses from Google Sheets...');
+      const response = await expensesAPI.getAll();
+      
+      if (response.success) {
+        console.log('Expenses fetched successfully:', response.expenses);
+        setExpenses(response.expenses || []);
+      } else {
+        console.error('Failed to fetch expenses:', response.error);
+        setError(response.error || 'Failed to fetch expenses');
+      }
+    } catch (error) {
+      console.error('Error fetching expenses:', error);
+      setError('Network error: Unable to fetch expenses');
+    } finally {
+      setIsLoading(false);
+      setIsRefreshing(false);
     }
-  ];
+  };
+
+  // Load expenses on component mount
+  useEffect(() => {
+    fetchExpenses();
+  }, []);
 
   const getCategoryBadge = (category: string) => {
     const colors = {
       'Utilities': 'bg-blue-500/20 text-blue-700 border-blue-500/30',
       'Equipment': 'bg-green-500/20 text-green-700 border-green-500/30',
       'Maintenance': 'bg-orange-500/20 text-orange-700 border-orange-500/30',
-      'Staff': 'bg-purple-500/20 text-purple-700 border-purple-500/30'
+      'Staff': 'bg-purple-500/20 text-purple-700 border-purple-500/30',
+      'Other': 'bg-gray-500/20 text-gray-700 border-gray-500/30'
     };
     return (
-      <Badge className={`${colors[category as keyof typeof colors] || 'bg-gray-500/20 text-gray-700 border-gray-500/30'} transition-colors duration-150`}>
+      <Badge className={`${colors[category as keyof typeof colors] || colors['Other']} transition-colors duration-150`}>
         {category}
       </Badge>
     );
@@ -156,40 +169,100 @@ const Expenses = () => {
     return matchesSearch && matchesCategory;
   });
 
-  const totalExpenses = filteredExpenses.reduce((sum, expense) => sum + expense.amount, 0);
+  // Calculate statistics from real data
+  const totalExpenses = filteredExpenses.reduce((sum, expense) => sum + (expense.amount || 0), 0);
+  const thisMonthExpenses = expenses.filter(e => {
+    const expenseDate = new Date(e.date);
+    const currentMonth = new Date().getMonth();
+    const currentYear = new Date().getFullYear();
+    return expenseDate.getMonth() === currentMonth && expenseDate.getFullYear() === currentYear;
+  }).reduce((sum, e) => sum + (e.amount || 0), 0);
+  const uniqueCategories = new Set(expenses.map(e => e.category)).size;
 
   const onSubmit = async (values: z.infer<typeof expenseFormSchema>) => {
     setIsSubmitting(true);
     
     try {
-      // Simulate API call with a delay
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      console.log('Submitting expense data:', values);
       
-      console.log('Expense form submitted:', values);
+      // Prepare expense data for API
+      const expenseData = {
+        description: values.description,
+        amount: parseFloat(values.amount),
+        category: values.category,
+        date: values.date,
+        addedBy: user?.name || 'Admin',
+        notes: values.notes || ''
+      };
+
+      // Submit to Google Sheets
+      const response = await expensesAPI.add(expenseData);
       
-      // Close dialog and show success
-      setIsAddExpenseDialogOpen(false);
-      setIsSuccessDialogOpen(true);
-      
-      // Show toast notification
-      toast({
-        title: "Expense Added Successfully",
-        description: `"${values.description}" has been recorded.`,
-      });
-      
-      // Reset form
-      form.reset();
+      if (response.success) {
+        console.log('Expense added successfully:', response.expense);
+        
+        // Close dialog and show success
+        setIsAddExpenseDialogOpen(false);
+        setIsSuccessDialogOpen(true);
+        
+        // Show toast notification
+        toast({
+          title: "Expense Added Successfully",
+          description: `"${values.description}" has been recorded.`,
+        });
+        
+        // Refresh expenses list
+        await fetchExpenses();
+        
+        // Reset form
+        form.reset();
+      } else {
+        throw new Error(response.error || 'Failed to add expense');
+      }
     } catch (error) {
       console.error('Error submitting form:', error);
       toast({
         title: "Error Adding Expense",
-        description: "There was a problem adding the expense. Please try again.",
+        description: error instanceof Error ? error.message : "There was a problem adding the expense. Please try again.",
         variant: "destructive",
       });
     } finally {
       setIsSubmitting(false);
     }
   };
+
+  // Loading state
+  if (isLoading) {
+    return (
+      <div className="space-y-4 sm:space-y-6">
+        <div className="flex items-center justify-center py-12">
+          <div className="text-center">
+            <Loader2 className="h-8 w-8 animate-spin text-orange-600 mx-auto mb-4" />
+            <p className="text-gray-600">Loading expenses from Google Sheets...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <div className="space-y-4 sm:space-y-6">
+        <div className="flex items-center justify-center py-12">
+          <div className="text-center">
+            <AlertCircle className="h-8 w-8 text-red-600 mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-gray-800 mb-2">Failed to Load Expenses</h3>
+            <p className="text-gray-600 mb-4">{error}</p>
+            <Button onClick={() => fetchExpenses()} className="bg-orange-600 hover:bg-orange-700">
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Try Again
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4 sm:space-y-6">
@@ -204,16 +277,30 @@ const Expenses = () => {
             Track and manage all gym operational expenses
           </p>
         </div>
-        <Button 
-          onClick={() => setIsAddExpenseDialogOpen(true)} 
-          className="w-full sm:w-auto premium-button transition-transform duration-200 hover:scale-105"
-        >
-          <Plus className="mr-2 h-4 w-4" />
-          Add Expense
-        </Button>
+        <div className="flex gap-2">
+          <Button 
+            onClick={() => fetchExpenses(true)} 
+            variant="outline"
+            disabled={isRefreshing}
+            className="bg-white/60 hover:bg-white"
+          >
+            {isRefreshing ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <RefreshCw className="h-4 w-4" />
+            )}
+          </Button>
+          <Button 
+            onClick={() => setIsAddExpenseDialogOpen(true)} 
+            className="w-full sm:w-auto premium-button transition-transform duration-200 hover:scale-105"
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            Add Expense
+          </Button>
+        </div>
       </div>
 
-      {/* Summary Cards */}
+      {/* Summary Cards - Using Real Data */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 md:gap-6">
         <Card className="glass-card border-white/40 hover:shadow-xl transition-all duration-200">
           <CardContent className="pt-4 sm:pt-6">
@@ -234,7 +321,7 @@ const Expenses = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-gray-600 text-sm font-medium">This Month</p>
-                <p className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-800">Rs.{Math.round(totalExpenses * 0.6).toLocaleString('en-US')}</p>
+                <p className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-800">Rs.{thisMonthExpenses.toLocaleString('en-US')}</p>
               </div>
               <div className="p-2 sm:p-3 rounded-xl bg-gradient-to-r from-red-500 to-red-600 shadow-lg">
                 <TrendingDown className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-white" />
@@ -248,7 +335,7 @@ const Expenses = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-gray-600 text-sm font-medium">Categories</p>
-                <p className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-800">{new Set(expenses.map(e => e.category)).size}</p>
+                <p className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-800">{uniqueCategories}</p>
               </div>
               <div className="p-2 sm:p-3 rounded-xl bg-gradient-to-r from-purple-500 to-purple-600 shadow-lg">
                 <IndianRupee className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-white" />
@@ -284,6 +371,7 @@ const Expenses = () => {
                 <SelectItem value="Equipment">Equipment</SelectItem>
                 <SelectItem value="Maintenance">Maintenance</SelectItem>
                 <SelectItem value="Staff">Staff</SelectItem>
+                <SelectItem value="Other">Other</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -295,8 +383,15 @@ const Expenses = () => {
         {filteredExpenses.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-8 bg-white/50 rounded-lg">
             <Receipt className="h-10 w-10 text-gray-400 mb-3" />
-            <h3 className="text-base font-medium text-gray-700">No expenses found 📭</h3>
-            <p className="text-gray-500 mt-1 text-sm">Try adjusting your search or filters</p>
+            <h3 className="text-base font-medium text-gray-700">
+              {expenses.length === 0 ? 'No expenses yet 📭' : 'No expenses found 📭'}
+            </h3>
+            <p className="text-gray-500 mt-1 text-sm">
+              {expenses.length === 0 
+                ? 'Add your first expense to get started' 
+                : 'Try adjusting your search or filters'
+              }
+            </p>
           </div>
         ) : (
           filteredExpenses.map((expense) => (
@@ -305,10 +400,14 @@ const Expenses = () => {
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex-1">
                     <h3 className="font-semibold text-gray-800 text-lg">{expense.description}</h3>
-                    <p className="text-xs text-gray-500 mt-1">{new Date(expense.date).toLocaleDateString('en-US')}</p>
+                    <p className="text-xs text-gray-500 mt-1">
+                      {expense.date ? new Date(expense.date).toLocaleDateString('en-US') : 'N/A'}
+                    </p>
                   </div>
                   <div className="text-right">
-                    <p className="text-xl font-bold text-gray-800">Rs.{expense.amount.toLocaleString('en-US')}</p>
+                    <p className="text-xl font-bold text-gray-800">
+                      Rs.{expense.amount ? expense.amount.toLocaleString('en-US') : '0'}
+                    </p>
                   </div>
                 </div>
                 
@@ -333,7 +432,7 @@ const Expenses = () => {
                   </Button>
                   <Button 
                     size="sm" 
-                    className="flex-1 text-xs bg-blue-500 hover:bg-blue-600 text-white transition-colors duration-150"
+                    className="flex-1 text-xs bg-orange-500 hover:bg-orange-600 text-white transition-colors duration-150"
                   >
                     Edit
                   </Button>
@@ -358,8 +457,15 @@ const Expenses = () => {
           {filteredExpenses.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-8 bg-white/50 rounded-lg">
               <Receipt className="h-12 w-12 text-gray-400 mb-4" />
-              <h3 className="text-lg font-medium text-gray-700">No expenses found 📭</h3>
-              <p className="text-gray-500 mt-1">Try adjusting your search or filters</p>
+              <h3 className="text-lg font-medium text-gray-700">
+                {expenses.length === 0 ? 'No expenses yet 📭' : 'No expenses found 📭'}
+              </h3>
+              <p className="text-gray-500 mt-1">
+                {expenses.length === 0 
+                  ? 'Add your first expense to get started' 
+                  : 'Try adjusting your search or filters'
+                }
+              </p>
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -378,11 +484,11 @@ const Expenses = () => {
                     <TableRow key={expense.id} className="border-gray-100 hover:bg-white/50 transition-colors duration-150">
                       <TableCell className="text-gray-800 font-medium">{expense.description}</TableCell>
                       <TableCell className="text-gray-800 font-semibold">
-                        Rs.{expense.amount.toLocaleString('en-US')}
+                        Rs.{expense.amount ? expense.amount.toLocaleString('en-US') : '0'}
                       </TableCell>
                       <TableCell>{getCategoryBadge(expense.category)}</TableCell>
                       <TableCell className="text-gray-600">
-                        {new Date(expense.date).toLocaleDateString('en-US')}
+                        {expense.date ? new Date(expense.date).toLocaleDateString('en-US') : 'N/A'}
                       </TableCell>
                       <TableCell className="text-gray-600">{expense.addedBy}</TableCell>
                     </TableRow>
@@ -492,6 +598,7 @@ const Expenses = () => {
                         <SelectItem value="Equipment">Equipment</SelectItem>
                         <SelectItem value="Maintenance">Maintenance</SelectItem>
                         <SelectItem value="Staff">Staff</SelectItem>
+                        <SelectItem value="Other">Other</SelectItem>
                       </SelectContent>
                     </Select>
                     <FormMessage />
@@ -535,7 +642,7 @@ const Expenses = () => {
                   {isSubmitting ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Adding...
+                      Adding to Google Sheets...
                     </>
                   ) : (
                     <>
@@ -561,7 +668,7 @@ const Expenses = () => {
               Expense Added Successfully!
             </DialogTitle>
             <DialogDescription className="text-gray-600 text-center mt-2">
-              The expense has been recorded in the system.
+              The expense has been recorded in your Google Sheets database.
             </DialogDescription>
             
             <div className="mt-6 w-full flex flex-col sm:flex-row gap-3">

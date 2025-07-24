@@ -1,5 +1,4 @@
-
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -60,13 +59,16 @@ import {
   ShieldCheck,
   Send,
   Check,
-  Loader2
+  Loader2,
+  RefreshCw,
+  AlertCircle
 } from 'lucide-react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import * as z from 'zod';
 import { toast } from '@/hooks/use-toast';
 import { whatsappService } from '@/services/whatsappService';
+import { membersAPI } from '@/services/googleSheetsAPI';
 
 // Define the Member interface
 interface Member {
@@ -81,6 +83,8 @@ interface Member {
   expiryDate: string;
   fee: number;
   status: 'active' | 'pending' | 'expired';
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 // Form validation schema
@@ -117,6 +121,11 @@ const membershipTypes = [
 ];
 
 const Members = () => {
+  // State management
+  const [members, setMembers] = useState<Member[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [isAddMemberDialogOpen, setIsAddMemberDialogOpen] = useState(false);
@@ -146,6 +155,40 @@ const Members = () => {
   const watchAdmissionFee = form.watch("admissionFee");
   const watchMonthlyFee = form.watch("monthlyFee");
 
+  // Fetch members from Google Sheets
+  const fetchMembers = async (showRefreshLoader = false) => {
+    try {
+      if (showRefreshLoader) {
+        setIsRefreshing(true);
+      } else {
+        setIsLoading(true);
+      }
+      setError(null);
+
+      console.log('Fetching members from Google Sheets...');
+      const response = await membersAPI.getAll();
+      
+      if (response.success) {
+        console.log('Members fetched successfully:', response.members);
+        setMembers(response.members || []);
+      } else {
+        console.error('Failed to fetch members:', response.error);
+        setError(response.error || 'Failed to fetch members');
+      }
+    } catch (error) {
+      console.error('Error fetching members:', error);
+      setError('Network error: Unable to fetch members');
+    } finally {
+      setIsLoading(false);
+      setIsRefreshing(false);
+    }
+  };
+
+  // Load members on component mount
+  useEffect(() => {
+    fetchMembers();
+  }, []);
+
   // Calculate total fee dynamically
   const calculateTotalFee = () => {
     const admissionFee = parseFloat(watchAdmissionFee || "0");
@@ -166,62 +209,6 @@ const Members = () => {
     }
   }, [watchMembershipType, form]);
 
-  // Dummy member data
-  const members: Member[] = [
-    {
-      id: '1',
-      name: 'Ahmed Khan',
-      phone: '03001234567',
-      cnic: '35201-1234567-1',
-      address: '123 Main Street, Lahore',
-      membershipType: 'Cardio + Strength',
-      feeType: 'Monthly',
-      joiningDate: '2024-06-15',
-      expiryDate: '2024-07-15',
-      fee: 4000,
-      status: 'active'
-    },
-    {
-      id: '2',
-      name: 'Sara Ali',
-      phone: '03009876543',
-      cnic: '35201-7654321-0',
-      address: '456 Park Avenue, Karachi',
-      membershipType: 'Personal Training',
-      feeType: 'Quarterly',
-      joiningDate: '2024-05-01',
-      expiryDate: '2024-08-01',
-      fee: 18000,
-      status: 'active'
-    },
-    {
-      id: '3',
-      name: 'Zain Ahmed',
-      phone: '03331234567',
-      cnic: '35201-1122334-4',
-      address: '789 Garden Town, Islamabad',
-      membershipType: 'Strength',
-      feeType: 'Monthly',
-      joiningDate: '2024-04-10',
-      expiryDate: '2024-05-10',
-      fee: 3000,
-      status: 'expired'
-    },
-    {
-      id: '4',
-      name: 'Fatima Malik',
-      phone: '03123456789',
-      cnic: '35201-9988776-5',
-      address: '101 DHA Phase 5, Lahore',
-      membershipType: 'Cardio',
-      feeType: 'Annually',
-      joiningDate: '2024-01-15',
-      expiryDate: '2025-01-15',
-      fee: 30000,
-      status: 'active'
-    }
-  ];
-
   // Filter members based on search term and status
   const filteredMembers = members.filter(member => {
     const matchesSearch = 
@@ -230,6 +217,17 @@ const Members = () => {
     const matchesStatus = statusFilter === 'all' || member.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
+
+  // Calculate statistics from real data
+  const totalMembers = members.length;
+  const activeMembers = members.filter(m => m.status === 'active').length;
+  const expiredMembers = members.filter(m => m.status === 'expired').length;
+  const thisMonthMembers = members.filter(m => {
+    const joinDate = new Date(m.joiningDate);
+    const currentMonth = new Date().getMonth();
+    const currentYear = new Date().getFullYear();
+    return joinDate.getMonth() === currentMonth && joinDate.getFullYear() === currentYear;
+  }).length;
 
   // Get status badge styling
   const getStatusBadge = (status: 'active' | 'pending' | 'expired') => {
@@ -251,54 +249,118 @@ const Members = () => {
     setIsSubmitting(true);
     
     try {
-      // Simulate API call with a delay
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      console.log('Submitting member data:', data);
       
-      console.log('Form submitted:', data);
-      
-      // Send WhatsApp notification if toggled
-      if (data.sendWhatsApp) {
-        try {
-          const membershipLabel = membershipTypes.find(type => type.value === data.membershipType)?.label || data.membershipType;
-          const totalFee = calculateTotalFee();
-          
-          await whatsappService.sendMemberReceipt(
-            data.name,
-            data.phone,
-            membershipLabel,
-            totalFee,
-            new Date().toLocaleDateString('en-US')
-          );
-          
-          console.log('WhatsApp notification sent');
-        } catch (error) {
-          console.error('Failed to send WhatsApp notification:', error);
-        }
+      // Calculate expiry date based on fee type
+      const joiningDate = new Date();
+      const expiryDate = new Date(joiningDate);
+      const feeTypeData = feeTypes.find(ft => ft.value === data.feeType);
+      if (feeTypeData) {
+        expiryDate.setMonth(expiryDate.getMonth() + feeTypeData.multiplier);
       }
+
+      // Prepare member data for API
+      const memberData = {
+        name: data.name,
+        phone: data.phone,
+        cnic: data.cnic,
+        address: data.address,
+        membershipType: membershipTypes.find(mt => mt.value === data.membershipType)?.label || data.membershipType,
+        feeType: feeTypes.find(ft => ft.value === data.feeType)?.label || data.feeType,
+        joiningDate: joiningDate.toISOString().split('T')[0],
+        expiryDate: expiryDate.toISOString().split('T')[0],
+        fee: calculateTotalFee(),
+        status: 'active'
+      };
+
+      // Submit to Google Sheets
+      const response = await membersAPI.add(memberData);
       
-      // Close dialog and show success
-      setIsAddMemberDialogOpen(false);
-      setIsSuccessDialogOpen(true);
-      
-      // Show toast notification
-      toast({
-        title: "Member Added Successfully",
-        description: `${data.name} has been added to your member database.`,
-      });
-      
-      // Reset form
-      form.reset();
+      if (response.success) {
+        console.log('Member added successfully:', response.member);
+        
+        // Send WhatsApp notification if toggled
+        if (data.sendWhatsApp) {
+          try {
+            const membershipLabel = membershipTypes.find(type => type.value === data.membershipType)?.label || data.membershipType;
+            const totalFee = calculateTotalFee();
+            
+            await whatsappService.sendMemberReceipt(
+              data.name,
+              data.phone,
+              membershipLabel,
+              totalFee,
+              new Date().toLocaleDateString('en-US')
+            );
+            
+            console.log('WhatsApp notification sent');
+          } catch (error) {
+            console.error('Failed to send WhatsApp notification:', error);
+          }
+        }
+        
+        // Close dialog and show success
+        setIsAddMemberDialogOpen(false);
+        setIsSuccessDialogOpen(true);
+        
+        // Show toast notification
+        toast({
+          title: "Member Added Successfully",
+          description: `${data.name} has been added to your member database.`,
+        });
+        
+        // Refresh members list
+        await fetchMembers();
+        
+        // Reset form
+        form.reset();
+      } else {
+        throw new Error(response.error || 'Failed to add member');
+      }
     } catch (error) {
       console.error('Error submitting form:', error);
       toast({
         title: "Error Adding Member",
-        description: "There was a problem adding the member. Please try again.",
+        description: error instanceof Error ? error.message : "There was a problem adding the member. Please try again.",
         variant: "destructive",
       });
     } finally {
       setIsSubmitting(false);
     }
   };
+
+  // Loading state
+  if (isLoading) {
+    return (
+      <div className="space-y-4 sm:space-y-6">
+        <div className="flex items-center justify-center py-12">
+          <div className="text-center">
+            <Loader2 className="h-8 w-8 animate-spin text-blue-600 mx-auto mb-4" />
+            <p className="text-gray-600">Loading members from Google Sheets...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <div className="space-y-4 sm:space-y-6">
+        <div className="flex items-center justify-center py-12">
+          <div className="text-center">
+            <AlertCircle className="h-8 w-8 text-red-600 mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-gray-800 mb-2">Failed to Load Members</h3>
+            <p className="text-gray-600 mb-4">{error}</p>
+            <Button onClick={() => fetchMembers()} className="bg-blue-600 hover:bg-blue-700">
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Try Again
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4 sm:space-y-6">
@@ -313,23 +375,37 @@ const Members = () => {
             Manage your gym members and their memberships
           </p>
         </div>
-        <Button 
-          onClick={() => setIsAddMemberDialogOpen(true)} 
-          className="w-full sm:w-auto premium-button transition-transform duration-200 hover:scale-105"
-        >
-          <Plus className="mr-2 h-4 w-4" />
-          Add Member
-        </Button>
+        <div className="flex gap-2">
+          <Button 
+            onClick={() => fetchMembers(true)} 
+            variant="outline"
+            disabled={isRefreshing}
+            className="bg-white/60 hover:bg-white"
+          >
+            {isRefreshing ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <RefreshCw className="h-4 w-4" />
+            )}
+          </Button>
+          <Button 
+            onClick={() => setIsAddMemberDialogOpen(true)} 
+            className="w-full sm:w-auto premium-button transition-transform duration-200 hover:scale-105"
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            Add Member
+          </Button>
+        </div>
       </div>
 
-      {/* Summary Cards */}
+      {/* Summary Cards - Using Real Data */}
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-6">
         <Card className="glass-card border-white/40 hover:shadow-xl transition-all duration-200">
           <CardContent className="pt-4 sm:pt-6">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-gray-600 text-sm font-medium">Total Members</p>
-                <p className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-800">{members.length}</p>
+                <p className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-800">{totalMembers}</p>
               </div>
               <div className="p-2 sm:p-3 rounded-xl bg-gradient-to-r from-blue-500 to-blue-600 shadow-lg">
                 <Users className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-white" />
@@ -343,7 +419,7 @@ const Members = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-gray-600 text-sm font-medium">Active Members</p>
-                <p className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-800">{members.filter(m => m.status === 'active').length}</p>
+                <p className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-800">{activeMembers}</p>
               </div>
               <div className="p-2 sm:p-3 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 shadow-lg">
                 <UserCheck className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-white" />
@@ -356,8 +432,8 @@ const Members = () => {
           <CardContent className="pt-4 sm:pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-gray-600 text-sm font-medium">Expiring Soon</p>
-                <p className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-800">{members.filter(m => m.status === 'expired').length}</p>
+                <p className="text-gray-600 text-sm font-medium">Expired/Expiring</p>
+                <p className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-800">{expiredMembers}</p>
               </div>
               <div className="p-2 sm:p-3 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 shadow-lg">
                 <Clock className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-white" />
@@ -371,7 +447,7 @@ const Members = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-gray-600 text-sm font-medium">New This Month</p>
-                <p className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-800">3</p>
+                <p className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-800">{thisMonthMembers}</p>
               </div>
               <div className="p-2 sm:p-3 rounded-xl bg-gradient-to-r from-purple-500 to-purple-600 shadow-lg">
                 <UserPlus className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-white" />
@@ -430,8 +506,15 @@ const Members = () => {
               {filteredMembers.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-12">
                   <Users className="h-12 w-12 text-gray-400 mb-4" />
-                  <h3 className="text-lg font-medium text-gray-700">No members found</h3>
-                  <p className="text-gray-500 mt-1">Try adjusting your search or filters</p>
+                  <h3 className="text-lg font-medium text-gray-700">
+                    {members.length === 0 ? 'No members yet' : 'No members found'}
+                  </h3>
+                  <p className="text-gray-500 mt-1">
+                    {members.length === 0 
+                      ? 'Add your first member to get started' 
+                      : 'Try adjusting your search or filters'
+                    }
+                  </p>
                 </div>
               ) : (
                 <Table>
@@ -457,10 +540,10 @@ const Members = () => {
                         <TableCell className="text-gray-600">{member.membershipType}</TableCell>
                         <TableCell className="text-gray-600">{member.feeType}</TableCell>
                         <TableCell className="text-gray-800 font-semibold">
-                          Rs. {member.fee.toLocaleString('en-US')}
+                          Rs. {member.fee ? member.fee.toLocaleString('en-US') : '0'}
                         </TableCell>
                         <TableCell className="text-gray-600">
-                          {new Date(member.expiryDate).toLocaleDateString('en-US')}
+                          {member.expiryDate ? new Date(member.expiryDate).toLocaleDateString('en-US') : 'N/A'}
                         </TableCell>
                         <TableCell>{getStatusBadge(member.status)}</TableCell>
                       </TableRow>
@@ -476,8 +559,15 @@ const Members = () => {
             {filteredMembers.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-8 bg-white/50 rounded-lg">
                 <Users className="h-10 w-10 text-gray-400 mb-3" />
-                <h3 className="text-base font-medium text-gray-700">No members found 📭</h3>
-                <p className="text-gray-500 mt-1 text-sm">Try adjusting your search or filters</p>
+                <h3 className="text-base font-medium text-gray-700">
+                  {members.length === 0 ? 'No members yet 📭' : 'No members found 📭'}
+                </h3>
+                <p className="text-gray-500 mt-1 text-sm">
+                  {members.length === 0 
+                    ? 'Add your first member to get started' 
+                    : 'Try adjusting your search or filters'
+                  }
+                </p>
               </div>
             ) : (
               filteredMembers.map((member) => (
@@ -503,7 +593,9 @@ const Members = () => {
                       </div>
                       <div className="bg-white/40 p-2 rounded-md">
                         <p className="text-xs text-gray-500">Fee</p>
-                        <p className="text-sm font-medium text-gray-700">Rs. {member.fee.toLocaleString('en-US')}</p>
+                        <p className="text-sm font-medium text-gray-700">
+                          Rs. {member.fee ? member.fee.toLocaleString('en-US') : '0'}
+                        </p>
                       </div>
                       <div className="bg-white/40 p-2 rounded-md">
                         <p className="text-xs text-gray-500">Fee Type</p>
@@ -512,7 +604,7 @@ const Members = () => {
                       <div className="bg-white/40 p-2 rounded-md">
                         <p className="text-xs text-gray-500">Expiry Date</p>
                         <p className="text-sm font-medium text-gray-700">
-                          {new Date(member.expiryDate).toLocaleDateString('en-US')}
+                          {member.expiryDate ? new Date(member.expiryDate).toLocaleDateString('en-US') : 'N/A'}
                         </p>
                       </div>
                     </div>
@@ -544,8 +636,15 @@ const Members = () => {
           {filteredMembers.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 bg-white/50 rounded-lg">
               <Users className="h-12 w-12 text-gray-400 mb-4" />
-              <h3 className="text-lg font-medium text-gray-700">No members found 📭</h3>
-              <p className="text-gray-500 mt-1">Try adjusting your search or filters</p>
+              <h3 className="text-lg font-medium text-gray-700">
+                {members.length === 0 ? 'No members yet 📭' : 'No members found 📭'}
+              </h3>
+              <p className="text-gray-500 mt-1">
+                {members.length === 0 
+                  ? 'Add your first member to get started' 
+                  : 'Try adjusting your search or filters'
+                }
+              </p>
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -577,7 +676,7 @@ const Members = () => {
                       </div>
                       <div className="text-xs">
                         <p className="text-gray-500">Fee</p>
-                        <p className="text-gray-800 font-medium">Rs. {member.fee.toLocaleString('en-US')}</p>
+                        <p className="text-gray-800 font-medium">Rs. {member.fee ? member.fee.toLocaleString('en-US') : '0'}</p>
                       </div>
                       <div className="text-xs">
                         <p className="text-gray-500">Fee Type</p>
@@ -586,7 +685,7 @@ const Members = () => {
                       <div className="text-xs">
                         <p className="text-gray-500">Expiry Date</p>
                         <p className="text-gray-800 font-medium">
-                          {new Date(member.expiryDate).toLocaleDateString('en-US')}
+                          {member.expiryDate ? new Date(member.expiryDate).toLocaleDateString('en-US') : 'N/A'}
                         </p>
                       </div>
                     </div>
@@ -890,7 +989,7 @@ const Members = () => {
                   {isSubmitting ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Adding...
+                      Adding to Google Sheets...
                     </>
                   ) : (
                     <>
@@ -916,7 +1015,7 @@ const Members = () => {
               Member Added Successfully!
             </DialogTitle>
             <DialogDescription className="text-gray-600 text-center mt-2">
-              The member has been added to your database and can now access gym facilities.
+              The member has been added to your Google Sheets database and can now access gym facilities.
               {isWhatsAppToggled && (
                 <div className="flex items-center justify-center mt-2 text-green-600">
                   <Send className="h-4 w-4 mr-1" />
