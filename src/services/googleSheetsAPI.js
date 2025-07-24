@@ -1,63 +1,51 @@
-// Google Sheets API Service - Fixed URL Construction
-const GOOGLE_SHEETS_URL = 'https://script.google.com/macros/s/AKfycbw-kCeEO-omTGbPKHGftJsFt72UMeL0vH6-0HWYn16koxrLYLwD9BI1kL-MFTMiacmk/exec';
+// Google Sheets API Service - Complete JSONP Implementation
+const GOOGLE_SHEETS_URL = 'https://script.google.com/macros/s/AKfycbx1v4cAR4KwrVZqz5YcDa84_vM6_xH0p08ry4KqEThFa7iwZHYl-d8X3PfOaKdsOA-v/exec';
 
-// ========== JSONP UTILITY FUNCTION ==========
-// ========== SIMPLER JSONP FUNCTION ==========
+// ========== UNIFIED JSONP UTILITY FUNCTION ==========
 const makeJSONPRequest = (url) => {
   return new Promise((resolve, reject) => {
-    const script = document.createElement('script');
-    const callbackName = 'callback_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
+    const callbackName = 'callback_' + Date.now() + '_' + Math.floor(Math.random() * 10000);
     
-    // Set up the callback
+    // Set up the global callback
     window[callbackName] = function(data) {
       // Clean up
       delete window[callbackName];
-      if (document.body.contains(script)) {
-        document.body.removeChild(script);
+      if (document.head.contains(script)) {
+        document.head.removeChild(script);
       }
       resolve(data);
     };
     
+    // Create script element
+    const script = document.createElement('script');
+    
     // Set up error handling
     script.onerror = function() {
       delete window[callbackName];
-      if (document.body.contains(script)) {
-        document.body.removeChild(script);
+      if (document.head.contains(script)) {
+        document.head.removeChild(script);
       }
       reject(new Error('Script loading failed'));
     };
     
-    // Add script to page
-    script.src = url + (url.includes('?') ? '&' : '?') + 'callback=' + callbackName;
-    document.body.appendChild(script);
+    // Add callback parameter to URL
+    const separator = url.includes('?') ? '&' : '?';
+    script.src = url + separator + 'callback=' + callbackName;
     
-    // Set timeout
+    // Add script to page
+    document.head.appendChild(script);
+    
+    // Set timeout for cleanup
     setTimeout(() => {
       if (window[callbackName]) {
         delete window[callbackName];
-        if (document.body.contains(script)) {
-          document.body.removeChild(script);
+        if (document.head.contains(script)) {
+          document.head.removeChild(script);
         }
         reject(new Error('Request timeout'));
       }
-    }, 20000); // Increased to 20 seconds
+    }, 15000);
   });
-};
-// ========== API FUNCTIONS ==========
-
-// Test API connection
-export const testAPI = async () => {
-  try {
-    const url = `${GOOGLE_SHEETS_URL}?action=test`;
-    return await makeJSONPRequest(url);
-  } catch (error) {
-    console.error('API test failed:', error);
-    return {
-      success: false,
-      error: 'API connection failed',
-      message: error.message
-    };
-  }
 };
 
 // ========== MEMBERS API ==========
@@ -79,19 +67,22 @@ export const membersAPI = {
     }
   },
 
-  // Add new member using URL parameters
+  // Add new member
   add: async (memberData) => {
     try {
       const params = new URLSearchParams();
       params.append('action', 'addMember');
       params.append('name', memberData.name || '');
       params.append('phone', memberData.phone || '');
-      params.append('cnic', memberData.cnic || '');
-      params.append('address', memberData.address || '');
+      params.append('email', memberData.email || '');
       params.append('membershipType', memberData.membershipType || '');
-      params.append('feeType', memberData.feeType || '');
-      params.append('fee', memberData.fee || '0');
+      params.append('membershipDuration', memberData.membershipDuration || '');
+      params.append('joiningDate', memberData.joiningDate || '');
       params.append('expiryDate', memberData.expiryDate || '');
+      params.append('membershipStatus', memberData.membershipStatus || 'Active');
+      params.append('emergencyContact', memberData.emergencyContact || '');
+      params.append('address', memberData.address || '');
+      params.append('notes', memberData.notes || '');
 
       const url = `${GOOGLE_SHEETS_URL}?${params.toString()}`;
       console.log('Adding member to:', url);
@@ -126,7 +117,7 @@ export const transactionsAPI = {
     }
   },
 
-  // Add new transaction using URL parameters
+  // Add new transaction
   add: async (transactionData) => {
     try {
       const params = new URLSearchParams();
@@ -137,6 +128,7 @@ export const transactionsAPI = {
       params.append('type', transactionData.type || 'membership');
       params.append('paymentMethod', transactionData.paymentMethod || 'cash');
       params.append('date', transactionData.date || new Date().toISOString().split('T')[0]);
+      params.append('status', transactionData.status || 'completed');
       params.append('notes', transactionData.notes || '');
 
       const url = `${GOOGLE_SHEETS_URL}?${params.toString()}`;
@@ -172,7 +164,7 @@ export const expensesAPI = {
     }
   },
 
-  // Add new expense using URL parameters
+  // Add new expense
   add: async (expenseData) => {
     try {
       const params = new URLSearchParams();
@@ -200,44 +192,17 @@ export const expensesAPI = {
 
 // ========== AUTH API ==========
 export const authAPI = {
-  // User login using JSONP (bypasses CORS)
+  // User login
   login: async (username, password) => {
     try {
       const params = new URLSearchParams();
       params.append('action', 'authenticateUser');
       params.append('username', username);
       params.append('password', password);
-      params.append('callback', 'handleAuthResponse');
 
       const url = `${GOOGLE_SHEETS_URL}?${params.toString()}`;
       console.log('Login attempt to:', url);
-      
-      return new Promise((resolve, reject) => {
-        // Create callback function
-        window.handleAuthResponse = (data) => {
-          delete window.handleAuthResponse;
-          resolve(data);
-        };
-
-        // Create script tag for JSONP
-        const script = document.createElement('script');
-        script.src = url;
-        script.onerror = () => {
-          delete window.handleAuthResponse;
-          reject(new Error('Network error'));
-        };
-        
-        document.head.appendChild(script);
-        
-        // Cleanup after timeout
-        setTimeout(() => {
-          if (window.handleAuthResponse) {
-            delete window.handleAuthResponse;
-            document.head.removeChild(script);
-            reject(new Error('Request timeout'));
-          }
-        }, 10000);
-      });
+      return await makeJSONPRequest(url);
     } catch (error) {
       console.error('Login failed:', error);
       return {
@@ -248,45 +213,24 @@ export const authAPI = {
     }
   },
 
-  // Get all users (admin only) - using JSONP
+  // Get all users (admin only)
   getUsers: async () => {
     try {
-      const params = new URLSearchParams();
-      params.append('action', 'getUsers');
-      params.append('callback', 'handleUsersResponse');
-
-      const url = `${GOOGLE_SHEETS_URL}?${params.toString()}`;
-      
-      return new Promise((resolve, reject) => {
-        window.handleUsersResponse = (data) => {
-          delete window.handleUsersResponse;
-          resolve(data);
-        };
-
-        const script = document.createElement('script');
-        script.src = url;
-        script.onerror = () => {
-          delete window.handleUsersResponse;
-          reject(new Error('Network error'));
-        };
-        
-        document.head.appendChild(script);
-        
-        setTimeout(() => {
-          if (window.handleUsersResponse) {
-            delete window.handleUsersResponse;
-            document.head.removeChild(script);
-            reject(new Error('Request timeout'));
-          }
-        }, 10000);
-      });
+      const url = `${GOOGLE_SHEETS_URL}?action=getUsers`;
+      console.log('Fetching users from:', url);
+      return await makeJSONPRequest(url);
     } catch (error) {
       console.error('Error fetching users:', error);
-      return { success: false, error: error.message };
+      return { 
+        success: false, 
+        error: 'Failed to fetch users',
+        users: [],
+        message: error.message 
+      };
     }
   },
 
-  // Add new user (admin only) - using JSONP with URL params
+  // Add new user (admin only)
   add: async (userData) => {
     try {
       const params = new URLSearchParams();
@@ -296,36 +240,17 @@ export const authAPI = {
       params.append('role', userData.role);
       params.append('name', userData.name);
       params.append('phone', userData.phone || '');
-      params.append('callback', 'handleAddUserResponse');
 
       const url = `${GOOGLE_SHEETS_URL}?${params.toString()}`;
-      
-      return new Promise((resolve, reject) => {
-        window.handleAddUserResponse = (data) => {
-          delete window.handleAddUserResponse;
-          resolve(data);
-        };
-
-        const script = document.createElement('script');
-        script.src = url;
-        script.onerror = () => {
-          delete window.handleAddUserResponse;
-          reject(new Error('Network error'));
-        };
-        
-        document.head.appendChild(script);
-        
-        setTimeout(() => {
-          if (window.handleAddUserResponse) {
-            delete window.handleAddUserResponse;
-            document.head.removeChild(script);
-            reject(new Error('Request timeout'));
-          }
-        }, 10000);
-      });
+      console.log('Adding user to:', url);
+      return await makeJSONPRequest(url);
     } catch (error) {
       console.error('Error adding user:', error);
-      return { success: false, error: error.message };
+      return { 
+        success: false, 
+        error: 'Failed to add user',
+        message: error.message 
+      };
     }
   }
 };
@@ -348,7 +273,11 @@ export const dashboardAPI = {
           activeMembers: 0,
           totalRevenue: 0,
           totalExpenses: 0,
-          netProfit: 0
+          netProfit: 0,
+          thisMonthMembers: 0,
+          thisMonthRevenue: 0,
+          thisMonthExpenses: 0,
+          expiringMemberships: 0
         },
         message: error.message
       };
@@ -356,26 +285,22 @@ export const dashboardAPI = {
   }
 };
 
-// ========== INITIALIZATION API ==========
-export const initAPI = {
-  // Initialize default data
-  initializeData: async () => {
-    try {
-      const url = `${GOOGLE_SHEETS_URL}?action=initializeData`;
-      console.log('Initializing data at:', url);
-      return await makeJSONPRequest(url);
-    } catch (error) {
-      console.error('Failed to initialize data:', error);
-      return {
-        success: false,
-        error: 'Failed to initialize data',
-        message: error.message
-      };
-    }
+// ========== UTILITY FUNCTIONS ==========
+
+// Test API connection
+export const testAPI = async () => {
+  try {
+    const url = `${GOOGLE_SHEETS_URL}?action=test`;
+    return await makeJSONPRequest(url);
+  } catch (error) {
+    console.error('API test failed:', error);
+    return {
+      success: false,
+      error: 'API connection failed',
+      message: error.message
+    };
   }
 };
-
-// ========== HELPER FUNCTIONS ==========
 
 // Check API connection status
 export const checkAPIConnection = async () => {
@@ -400,12 +325,20 @@ export const debugAPI = async () => {
     const membersResult = await membersAPI.getAll();
     console.log('2. Get Members:', membersResult);
     
+    const transactionsResult = await transactionsAPI.getAll();
+    console.log('3. Get Transactions:', transactionsResult);
+    
+    const expensesResult = await expensesAPI.getAll();
+    console.log('4. Get Expenses:', expensesResult);
+    
     const statsResult = await dashboardAPI.getStats();
-    console.log('3. Dashboard Stats:', statsResult);
+    console.log('5. Dashboard Stats:', statsResult);
     
     return {
       test: testResult,
       members: membersResult,
+      transactions: transactionsResult,
+      expenses: expensesResult,
       stats: statsResult
     };
   } catch (error) {
