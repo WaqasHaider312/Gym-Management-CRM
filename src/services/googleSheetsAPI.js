@@ -200,17 +200,28 @@ export const expensesAPI = {
 
 // ========== AUTH API ==========
 export const authAPI = {
-  // User login using URL parameters
+  // User login using POST request
   login: async (username, password) => {
     try {
-      const params = new URLSearchParams();
-      params.append('action', 'login');
-      params.append('username', username);
-      params.append('password', password);
+      const response = await fetch(GOOGLE_SHEETS_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'authenticateUser',
+          username: username,
+          password: password
+        })
+      });
 
-      const url = `${GOOGLE_SHEETS_URL}?${params.toString()}`;
-      console.log('Login attempt to:', url);
-      return await makeJSONPRequest(url);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const result = await response.json();
+      console.log('Login response:', result);
+      return result;
     } catch (error) {
       console.error('Login failed:', error);
       return {
@@ -221,20 +232,46 @@ export const authAPI = {
     }
   },
 
-  // Get all users
+  // Get all users (admin only)
   getUsers: async () => {
     try {
-      const url = `${GOOGLE_SHEETS_URL}?action=getUsers`;
-      console.log('Fetching users from:', url);
-      return await makeJSONPRequest(url);
+      const response = await fetch(GOOGLE_SHEETS_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'getUsers'
+        })
+      });
+
+      const result = await response.json();
+      return result;
     } catch (error) {
-      console.error('Failed to fetch users:', error);
-      return {
-        success: false,
-        error: 'Failed to fetch users',
-        users: [],
-        message: error.message
-      };
+      console.error('Error fetching users:', error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  // Add new user (admin only)
+  add: async (userData) => {
+    try {
+      const response = await fetch(GOOGLE_SHEETS_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'addUser',
+          userData: userData
+        })
+      });
+
+      const result = await response.json();
+      return result;
+    } catch (error) {
+      console.error('Error adding user:', error);
+      return { success: false, error: error.message };
     }
   }
 };
