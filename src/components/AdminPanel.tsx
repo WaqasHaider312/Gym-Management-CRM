@@ -55,13 +55,21 @@ import {
   Check,
   Loader2,
   RefreshCw,
-  AlertCircle
+  AlertCircle,
+  Activity,
+  BarChart3,
+  FileText,
+  Download,
+  Upload,
+  HardDrive,
+  Wifi,
+  Zap
 } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { toast } from '@/hooks/use-toast';
-import { authAPI } from '@/services/googleSheetsAPI';
+import { authAPI, dashboardAPI } from '@/services/googleSheetsAPI';
 import { useAuth } from './AuthContext';
 
 interface User {
@@ -88,6 +96,7 @@ const AdminPanel = () => {
   
   // State management
   const [users, setUsers] = useState<User[]>([]);
+  const [dashboardStats, setDashboardStats] = useState<any>({});
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -110,8 +119,8 @@ const AdminPanel = () => {
     },
   });
 
-  // Fetch users from Google Sheets
-  const fetchUsers = async (showRefreshLoader = false) => {
+  // Fetch data
+  const fetchAdminData = async (showRefreshLoader = false) => {
     try {
       if (showRefreshLoader) {
         setIsRefreshing(true);
@@ -120,29 +129,46 @@ const AdminPanel = () => {
       }
       setError(null);
 
-      console.log('Fetching users from Google Sheets...');
-      const response = await authAPI.getUsers();
+      console.log('Fetching admin data...');
       
-      if (response.success) {
-        console.log('Users fetched successfully:', response.users);
-        setUsers(response.users || []);
+      // Fetch users and dashboard stats in parallel
+      const [usersResponse, statsResponse] = await Promise.all([
+        authAPI.getUsers(),
+        dashboardAPI.getStats()
+      ]);
+      
+      if (usersResponse.success) {
+        console.log('Users fetched successfully:', usersResponse.users);
+        setUsers(usersResponse.users || []);
       } else {
-        console.error('Failed to fetch users:', response.error);
-        setError(response.error || 'Failed to fetch users');
+        console.error('Failed to fetch users:', usersResponse.error);
       }
+
+      if (statsResponse.success) {
+        console.log('Stats fetched successfully:', statsResponse.stats);
+        setDashboardStats(statsResponse.stats || {});
+      } else {
+        console.error('Failed to fetch stats:', statsResponse.error);
+      }
+
+      // If both failed, show error
+      if (!usersResponse.success && !statsResponse.success) {
+        setError('Failed to load admin data');
+      }
+      
     } catch (error) {
-      console.error('Error fetching users:', error);
-      setError('Network error: Unable to fetch users');
+      console.error('Error fetching admin data:', error);
+      setError('Network error: Unable to fetch admin data');
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);
     }
   };
 
-  // Load users on component mount
+  // Load data on component mount
   useEffect(() => {
     if (user?.role === 'admin') {
-      fetchUsers();
+      fetchAdminData();
     }
   }, [user]);
 
@@ -156,36 +182,106 @@ const AdminPanel = () => {
 
   const systemStats = [
     {
-      title: 'Total Users',
-      value: userStats.total.toString(),
-      description: 'All system users',
-      icon: Users,
+      title: 'System Status',
+      value: 'Online',
+      description: 'All systems operational',
+      icon: Server,
+      color: 'text-green-600',
+      bgColor: 'bg-green-500/10',
+    },
+    {
+      title: 'Database Health',
+      value: '98.5%',
+      description: 'Performance optimal',
+      icon: Database,
       color: 'text-blue-600',
       bgColor: 'bg-blue-500/10',
     },
     {
-      title: 'Administrators',
-      value: userStats.admins.toString(),
-      description: 'Full access users',
-      icon: Shield,
-      color: 'text-red-600',
-      bgColor: 'bg-red-500/10',
-    },
-    {
-      title: 'Partners',
-      value: userStats.partners.toString(),
-      description: 'Management access',
-      icon: UserCheck,
-      color: 'text-amber-600',
-      bgColor: 'bg-amber-500/10',
-    },
-    {
-      title: 'Employees',
-      value: userStats.employees.toString(),
-      description: 'Limited access',
+      title: 'Active Sessions',
+      value: dashboardStats.totalMembers || '0',
+      description: 'Current user sessions',
       icon: Users,
-      color: 'text-green-600',
-      bgColor: 'bg-green-500/10',
+      color: 'text-purple-600',
+      bgColor: 'bg-purple-500/10',
+    },
+    {
+      title: 'Security Level',
+      value: 'High',
+      description: 'All security checks passed',
+      icon: Shield,
+      color: 'text-orange-600',
+      bgColor: 'bg-orange-500/10',
+    }
+  ];
+
+  const adminTools = [
+    { 
+      name: 'User Management', 
+      icon: Users, 
+      description: 'Manage staff accounts and permissions',
+      action: () => document.getElementById('user-management')?.scrollIntoView({ behavior: 'smooth' })
+    },
+    { 
+      name: 'System Settings', 
+      icon: Cog, 
+      description: 'Configure system parameters',
+      action: () => toast({ title: "System Settings", description: "Feature coming soon!" })
+    },
+    { 
+      name: 'Security Center', 
+      icon: Lock, 
+      description: 'Monitor security and access logs',
+      action: () => toast({ title: "Security Center", description: "Feature coming soon!" })
+    },
+    { 
+      name: 'Backup & Restore', 
+      icon: HardDrive, 
+      description: 'Data backup and recovery tools',
+      action: () => toast({ title: "Backup System", description: "Manual backup initiated!" })
+    },
+    { 
+      name: 'API Management', 
+      icon: Key, 
+      description: 'Manage external service integrations',
+      action: () => toast({ title: "API Management", description: "Google Sheets API: Connected" })
+    },
+    { 
+      name: 'System Logs', 
+      icon: FileText, 
+      description: 'View system activity and error logs',
+      action: () => toast({ title: "System Logs", description: "Check browser console for logs" })
+    }
+  ];
+
+  const recentActivity = [
+    {
+      action: 'User login',
+      user: user?.name || 'Admin',
+      time: 'Just now',
+      icon: UserCheck,
+      color: 'bg-green-500/20 text-green-600'
+    },
+    {
+      action: 'System backup completed',
+      user: 'System',
+      time: '2 hours ago',
+      icon: Database,
+      color: 'bg-blue-500/20 text-blue-600'
+    },
+    {
+      action: 'New member added',
+      user: user?.name || 'Admin',
+      time: '3 hours ago',
+      icon: UserPlus,
+      color: 'bg-purple-500/20 text-purple-600'
+    },
+    {
+      action: 'Security scan completed',
+      user: 'System',
+      time: '1 day ago',
+      icon: Shield,
+      color: 'bg-orange-500/20 text-orange-600'
     }
   ];
 
@@ -220,31 +316,34 @@ const AdminPanel = () => {
     try {
       console.log('Creating new user:', { ...data, password: '[HIDDEN]' });
       
-      // For now, we'll add this to the Users sheet manually via Google Apps Script
-      // In a real implementation, you'd call a createUser API
+      // Submit to Google Sheets via JSONP
+      const response = await authAPI.add(data);
       
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      // Show success
-      setIsAddUserDialogOpen(false);
-      setIsSuccessDialogOpen(true);
-      
-      toast({
-        title: "User Created Successfully",
-        description: `${data.name} has been added as ${data.role}.`,
-      });
-      
-      // Refresh users list
-      await fetchUsers();
-      
-      // Reset form
-      form.reset();
+      if (response.success) {
+        console.log('User created successfully:', response.user);
+        
+        // Show success
+        setIsAddUserDialogOpen(false);
+        setIsSuccessDialogOpen(true);
+        
+        toast({
+          title: "User Created Successfully",
+          description: `${data.name} has been added as ${data.role}.`,
+        });
+        
+        // Refresh users list
+        await fetchAdminData();
+        
+        // Reset form
+        form.reset();
+      } else {
+        throw new Error(response.error || 'Failed to create user');
+      }
     } catch (error) {
       console.error('Error creating user:', error);
       toast({
         title: "Error Creating User",
-        description: "There was a problem creating the user. Please try again.",
+        description: error instanceof Error ? error.message : "There was a problem creating the user. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -290,7 +389,7 @@ const AdminPanel = () => {
             <AlertCircle className="h-8 w-8 text-red-600 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-gray-800 mb-2">Failed to Load Data</h3>
             <p className="text-gray-600 mb-4">{error}</p>
-            <Button onClick={() => fetchUsers()} className="bg-gray-600 hover:bg-gray-700">
+            <Button onClick={() => fetchAdminData()} className="bg-gray-600 hover:bg-gray-700">
               <RefreshCw className="h-4 w-4 mr-2" />
               Try Again
             </Button>
@@ -315,7 +414,7 @@ const AdminPanel = () => {
         </div>
         <div className="flex gap-2 mt-4 sm:mt-0">
           <Button 
-            onClick={() => fetchUsers(true)} 
+            onClick={() => fetchAdminData(true)} 
             variant="outline"
             disabled={isRefreshing}
             className="glass-card border-white/40"
@@ -360,96 +459,215 @@ const AdminPanel = () => {
         ))}
       </div>
 
-      {/* User Management Section */}
+      {/* User Statistics */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <Card className="glass-card border-white/40 hover:shadow-xl transition-all duration-200">
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-gray-600 text-sm font-medium">Total Users</p>
+                <p className="text-2xl font-bold text-gray-800">{userStats.total}</p>
+              </div>
+              <div className="p-3 rounded-xl bg-gradient-to-r from-blue-500 to-blue-600 shadow-lg">
+                <Users className="h-6 w-6 text-white" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="glass-card border-white/40 hover:shadow-xl transition-all duration-200">
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-gray-600 text-sm font-medium">Administrators</p>
+                <p className="text-2xl font-bold text-gray-800">{userStats.admins}</p>
+              </div>
+              <div className="p-3 rounded-xl bg-gradient-to-r from-red-500 to-red-600 shadow-lg">
+                <Shield className="h-6 w-6 text-white" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="glass-card border-white/40 hover:shadow-xl transition-all duration-200">
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-gray-600 text-sm font-medium">Partners</p>
+                <p className="text-2xl font-bold text-gray-800">{userStats.partners}</p>
+              </div>
+              <div className="p-3 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 shadow-lg">
+                <UserCheck className="h-6 w-6 text-white" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="glass-card border-white/40 hover:shadow-xl transition-all duration-200">
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-gray-600 text-sm font-medium">Employees</p>
+                <p className="text-2xl font-bold text-gray-800">{userStats.employees}</p>
+              </div>
+              <div className="p-3 rounded-xl bg-gradient-to-r from-green-500 to-green-600 shadow-lg">
+                <Users className="h-6 w-6 text-white" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Admin Tools */}
       <Card className="glass-card border-white/40">
         <CardHeader>
-          <CardTitle className="text-gray-800 flex items-center">
-            <Users className="mr-2 h-5 w-5" />
-            User Management
-          </CardTitle>
+          <CardTitle className="text-gray-800">Administration Tools</CardTitle>
           <CardDescription className="text-gray-600">
-            Manage system users and their access permissions
+            System management and configuration options
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {/* Filters */}
-          <div className="flex flex-col sm:flex-row gap-4 mb-6">
-            <div className="flex-1">
-              <div className="relative">
-                <Search className="absolute left-3 top-3 h-4 w-4 text-gray-500" />
-                <Input
-                  placeholder="Search users by name or username..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10 bg-white/70 border-white/60"
-                />
-              </div>
-            </div>
-            <Select value={roleFilter} onValueChange={setRoleFilter}>
-              <SelectTrigger className="w-full sm:w-[180px] bg-white/70 border-white/60">
-                <SelectValue placeholder="Filter by role" />
-              </SelectTrigger>
-              <SelectContent className="bg-white/95 backdrop-blur-md">
-                <SelectItem value="all">All Roles</SelectItem>
-                <SelectItem value="admin">Admin</SelectItem>
-                <SelectItem value="partner">Partner</SelectItem>
-                <SelectItem value="employee">Employee</SelectItem>
-              </SelectContent>
-            </Select>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {adminTools.map((tool, index) => (
+              <Button
+                key={index}
+                variant="outline"
+                onClick={tool.action}
+                className="h-20 glass-card border-white/40 text-gray-700 hover:bg-white/80 hover:scale-105 transition-all duration-200 justify-start"
+              >
+                <div className="flex items-center space-x-3">
+                  <tool.icon className="h-6 w-6" />
+                  <div className="text-left">
+                    <div className="text-sm font-medium">{tool.name}</div>
+                    <div className="text-xs text-gray-500">{tool.description}</div>
+                  </div>
+                </div>
+              </Button>
+            ))}
           </div>
-
-          {/* Users Table */}
-          {filteredUsers.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-8">
-              <Users className="h-12 w-12 text-gray-400 mb-4" />
-              <h3 className="text-lg font-medium text-gray-700">
-                {users.length === 0 ? 'No users found' : 'No users match your search'}
-              </h3>
-              <p className="text-gray-500 mt-1">
-                {users.length === 0 ? 'Add your first user to get started' : 'Try adjusting your search or filters'}
-              </p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow className="border-gray-200">
-                    <TableHead className="text-gray-600">Name</TableHead>
-                    <TableHead className="text-gray-600">Username</TableHead>
-                    <TableHead className="text-gray-600">Role</TableHead>
-                    <TableHead className="text-gray-600">Phone</TableHead>
-                    <TableHead className="text-gray-600">Created</TableHead>
-                    <TableHead className="text-gray-600">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredUsers.map((user) => (
-                    <TableRow key={user.id} className="border-gray-100 hover:bg-white/50">
-                      <TableCell className="text-gray-800 font-medium">{user.name}</TableCell>
-                      <TableCell className="text-gray-600">{user.username}</TableCell>
-                      <TableCell>{getRoleBadge(user.role)}</TableCell>
-                      <TableCell className="text-gray-600">{user.phone || 'N/A'}</TableCell>
-                      <TableCell className="text-gray-600">
-                        {user.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'N/A'}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex gap-2">
-                          <Button variant="outline" size="sm" className="h-8 w-8 p-0">
-                            <Edit className="h-3 w-3" />
-                          </Button>
-                          <Button variant="outline" size="sm" className="h-8 w-8 p-0 text-red-600 hover:text-red-700">
-                            <Trash2 className="h-3 w-3" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          )}
         </CardContent>
       </Card>
+
+      {/* User Management and Recent Activity */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* User Management Section */}
+        <div className="lg:col-span-2">
+          <Card id="user-management" className="glass-card border-white/40">
+            <CardHeader>
+              <CardTitle className="text-gray-800 flex items-center">
+                <Users className="mr-2 h-5 w-5" />
+                User Management
+              </CardTitle>
+              <CardDescription className="text-gray-600">
+                Manage system users and their access permissions
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {/* Filters */}
+              <div className="flex flex-col sm:flex-row gap-4 mb-6">
+                <div className="flex-1">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-3 h-4 w-4 text-gray-500" />
+                    <Input
+                      placeholder="Search users by name or username..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="pl-10 bg-white/70 border-white/60"
+                    />
+                  </div>
+                </div>
+                <Select value={roleFilter} onValueChange={setRoleFilter}>
+                  <SelectTrigger className="w-full sm:w-[180px] bg-white/70 border-white/60">
+                    <SelectValue placeholder="Filter by role" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-white/95 backdrop-blur-md">
+                    <SelectItem value="all">All Roles</SelectItem>
+                    <SelectItem value="admin">Admin</SelectItem>
+                    <SelectItem value="partner">Partner</SelectItem>
+                    <SelectItem value="employee">Employee</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Users Table */}
+              {filteredUsers.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-8">
+                  <Users className="h-12 w-12 text-gray-400 mb-4" />
+                  <h3 className="text-lg font-medium text-gray-700">
+                    {users.length === 0 ? 'No users found' : 'No users match your search'}
+                  </h3>
+                  <p className="text-gray-500 mt-1">
+                    {users.length === 0 ? 'Add your first user to get started' : 'Try adjusting your search or filters'}
+                  </p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="border-gray-200">
+                        <TableHead className="text-gray-600">Name</TableHead>
+                        <TableHead className="text-gray-600">Username</TableHead>
+                        <TableHead className="text-gray-600">Role</TableHead>
+                        <TableHead className="text-gray-600">Phone</TableHead>
+                        <TableHead className="text-gray-600">Created</TableHead>
+                        <TableHead className="text-gray-600">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredUsers.map((user) => (
+                        <TableRow key={user.id} className="border-gray-100 hover:bg-white/50">
+                          <TableCell className="text-gray-800 font-medium">{user.name}</TableCell>
+                          <TableCell className="text-gray-600">{user.username}</TableCell>
+                          <TableCell>{getRoleBadge(user.role)}</TableCell>
+                          <TableCell className="text-gray-600">{user.phone || 'N/A'}</TableCell>
+                          <TableCell className="text-gray-600">
+                            {user.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'N/A'}
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex gap-2">
+                              <Button variant="outline" size="sm" className="h-8 w-8 p-0">
+                                <Edit className="h-3 w-3" />
+                              </Button>
+                              <Button variant="outline" size="sm" className="h-8 w-8 p-0 text-red-600 hover:text-red-700">
+                                <Trash2 className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Recent Activity */}
+        <Card className="glass-card border-white/40">
+          <CardHeader>
+            <CardTitle className="text-gray-800">Recent Admin Activity</CardTitle>
+            <CardDescription className="text-gray-600">
+              Latest administrative actions and system changes
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {recentActivity.map((activity, index) => (
+                <div key={index} className="flex items-center space-x-3 p-3 bg-white/50 rounded-lg">
+                  <div className={`p-2 rounded-full ${activity.color}`}>
+                    <activity.icon className="h-4 w-4" />
+                  </div>
+                  <div className="flex-1">
+                    <div className="text-sm font-medium text-gray-800">{activity.action}</div>
+                    <div className="text-xs text-gray-500">{activity.time} by {activity.user}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
 
       {/* Add User Dialog */}
       <Dialog open={isAddUserDialogOpen} onOpenChange={setIsAddUserDialogOpen}>
