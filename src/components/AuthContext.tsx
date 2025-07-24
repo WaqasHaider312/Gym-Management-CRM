@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { authAPI } from '@/services/googleSheetsAPI'; // Import the new API
+import { authAPI } from '@/services/googleSheetsAPI'; // Keep this import
 
 interface User {
   id: string;
@@ -26,28 +26,6 @@ export const useAuth = () => {
   return context;
 };
 
-// Fallback mock login for development/offline use
-const mockLogin = (username: string, password: string) => {
-  const mockUsers: User[] = [
-    { id: '1', username: 'admin', role: 'admin', name: 'Gym Admin', phone: '+91 9876543210' },
-    { id: '2', username: 'partner', role: 'partner', name: 'Business Partner', phone: '+91 9876543211' },
-    { id: '3', username: 'employee', role: 'employee', name: 'Gym Employee', phone: '+91 9876543212' }
-  ];
-
-  const foundUser = mockUsers.find(u => u.username === username);
-  if (foundUser && password === 'password123') {
-    return {
-      success: true,
-      message: 'Login successful (fallback mode)',
-      user: foundUser
-    };
-  }
-  return {
-    success: false,
-    error: 'Invalid credentials'
-  };
-};
-
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -68,7 +46,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const login = async (username: string, password: string, rememberMe: boolean): Promise<boolean> => {
     try {
-      // Use the new JSONP API
       const result = await authAPI.login(username, password);
       
       if (result.success && result.user) {
@@ -88,30 +65,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         
         return true;
       } else {
-        console.error('Login failed, using fallback:', result.error);
-        // Try fallback login
-        const fallbackResult = mockLogin(username, password);
-        if (fallbackResult.success && fallbackResult.user) {
-          setUser(fallbackResult.user);
-          if (rememberMe) {
-            localStorage.setItem('gym_user', JSON.stringify(fallbackResult.user));
-          }
-          return true;
-        }
-        return false;
+        console.error('Login failed:', result.error);
+        return false; // No fallback - must use real Google Sheets
       }
     } catch (error) {
-      console.error('Login error, using fallback:', error);
-      // Try fallback login
-      const fallbackResult = mockLogin(username, password);
-      if (fallbackResult.success && fallbackResult.user) {
-        setUser(fallbackResult.user);
-        if (rememberMe) {
-          localStorage.setItem('gym_user', JSON.stringify(fallbackResult.user));
-        }
-        return true;
-      }
-      return false;
+      console.error('Login error:', error);
+      return false; // Force real authentication only
     }
   };
 
