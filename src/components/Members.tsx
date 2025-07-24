@@ -25,7 +25,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from '@/components/ui/dialog';
 import {
   Form,
@@ -61,7 +60,12 @@ import {
   Check,
   Loader2,
   RefreshCw,
-  AlertCircle
+  AlertCircle,
+  Edit,
+  Trash2,
+  Eye,
+  Download,
+  RotateCcw
 } from 'lucide-react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
@@ -70,7 +74,7 @@ import { toast } from '@/hooks/use-toast';
 import { whatsappService } from '@/services/whatsappService';
 import { membersAPI } from '@/services/googleSheetsAPI';
 
-// Define the Member interface
+// Member interface
 interface Member {
   id: string;
   name: string;
@@ -87,32 +91,34 @@ interface Member {
   updatedAt?: string;
 }
 
-// Form validation schema
+// Form schemas
 const memberFormSchema = z.object({
-  name: z.string().min(3, { message: "Name must be at least 3 characters" }),
-  phone: z.string().min(11, { message: "Please enter a valid phone number" }),
-  cnic: z.string().min(13, { message: "Please enter a valid CNIC number" }),
-  address: z.string().min(5, { message: "Address must be at least 5 characters" }),
-  membershipType: z.string({
-    required_error: "Please select a membership type",
-  }),
-  feeType: z.string({
-    required_error: "Please select a fee type",
-  }),
-  admissionFee: z.string().min(1, { message: "Admission fee is required" }),
-  monthlyFee: z.string().min(1, { message: "Monthly fee is required" }),
+  name: z.string().min(3, "Name must be at least 3 characters"),
+  phone: z.string().regex(/^03\d{9}$/, "Phone must be 11 digits starting with 03"),
+  cnic: z.string().min(13, "Please enter a valid CNIC number"),
+  address: z.string().min(5, "Address must be at least 5 characters"),
+  membershipType: z.string({ required_error: "Please select a membership type" }),
+  feeType: z.string({ required_error: "Please select a fee type" }),
+  admissionFee: z.string().min(1, "Admission fee is required"),
+  monthlyFee: z.string().min(1, "Monthly fee is required"),
   sendWhatsApp: z.boolean().default(false),
 });
 
-// Fee types
+const renewSchema = z.object({
+  startDate: z.string().min(1, "Start date is required"),
+  feeType: z.string({ required_error: "Please select a fee type" }),
+  sendWhatsApp: z.boolean().default(false),
+});
+
+// Fee and membership types
 const feeTypes = [
-  { value: 'monthly', label: 'Monthly', multiplier: 1 },
-  { value: 'quarterly', label: 'Quarterly', multiplier: 3 },
-  { value: 'halfYearly', label: 'Half Yearly', multiplier: 6 },
-  { value: 'annually', label: 'Annually', multiplier: 12 },
+  { value: 'daily', label: '1 Day Pass', multiplier: 1, isDailyPass: true },
+  { value: 'monthly', label: 'Monthly', multiplier: 1, isDailyPass: false },
+  { value: 'quarterly', label: 'Quarterly', multiplier: 3, isDailyPass: false },
+  { value: 'halfYearly', label: 'Half Yearly', multiplier: 6, isDailyPass: false },
+  { value: 'annually', label: 'Annually', multiplier: 12, isDailyPass: false },
 ];
 
-// Membership types with associated fees
 const membershipTypes = [
   { value: 'strength', label: 'Strength', fee: 3000 },
   { value: 'cardio', label: 'Cardio', fee: 2500 },
@@ -121,62 +127,135 @@ const membershipTypes = [
 ];
 
 const Members = () => {
-  // State management
+  // State
   const [members, setMembers] = useState<Member[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [isAddMemberDialogOpen, setIsAddMemberDialogOpen] = useState(false);
-  const [isSuccessDialogOpen, setIsSuccessDialogOpen] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isWhatsAppToggled, setIsWhatsAppToggled] = useState(true);
+  const [membershipFilter, setMembershipFilter] = useState('all');
   
-  // Form setup with zod validation
+  // Dialog states
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isRenewDialogOpen, setIsRenewDialogOpen] = useState(false);
+  const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isSuccessDialogOpen, setIsSuccessDialogOpen] = useState(false);
+  
+  const [selectedMember, setSelectedMember] = useState<Member | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
+
+  // Forms
   const form = useForm<z.infer<typeof memberFormSchema>>({
     resolver: zodResolver(memberFormSchema),
     defaultValues: {
-      name: "",
-      phone: "",
-      cnic: "",
-      address: "",
-      membershipType: "",
-      feeType: "",
-      admissionFee: "2000",
-      monthlyFee: "",
-      sendWhatsApp: true,
+      name: "", phone: "", cnic: "", address: "",
+      membershipType: "", feeType: "", admissionFee: "2000",
+      monthlyFee: "", sendWhatsApp: true,
     },
   });
 
-  // Watch form values for dynamic calculations
+  const renewForm = useForm<z.infer<typeof renewSchema>>({
+    resolver: zodResolver(renewSchema),
+    defaultValues: {
+      startDate: new Date().toISOString().split('T')[0],
+      feeType: "", sendWhatsApp: true,
+    },
+  });
+
+  // Watch form values
   const watchMembershipType = form.watch("membershipType");
   const watchFeeType = form.watch("feeType");
   const watchAdmissionFee = form.watch("admissionFee");
   const watchMonthlyFee = form.watch("monthlyFee");
 
-  // Fetch members from Google Sheets
+  // Utility functions
+  const formatDate = (dateString: string): string => {
+    if (!dateString) return 'N/A';
+    try {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) return 'Invalid Date';
+      return date.toLocaleDateString('en-US', { 
+        year: 'numeric', month: 'short', day: '2-digit' 
+      });
+    } catch {
+      return 'Invalid Date';
+    }
+  };
+
+  const calculateExpiryDate = (startDate: string, feeType: string): string => {
+    const start = new Date(startDate);
+    const feeTypeData = feeTypes.find(ft => ft.value === feeType);
+    if (!feeTypeData) return startDate;
+    
+    if (feeTypeData.isDailyPass) {
+      start.setDate(start.getDate() + 1);
+    } else {
+      start.setMonth(start.getMonth() + feeTypeData.multiplier);
+    }
+    return start.toISOString().split('T')[0];
+  };
+
+  const calculateTotalFee = () => {
+    const feeTypeData = feeTypes.find(f => f.value === watchFeeType);
+    if (feeTypeData?.isDailyPass) return parseFloat(watchMonthlyFee || "0");
+    
+    const admissionFee = parseFloat(watchAdmissionFee || "0");
+    const monthlyFee = parseFloat(watchMonthlyFee || "0");
+    const multiplier = feeTypeData?.multiplier || 1;
+    return admissionFee + (monthlyFee * multiplier);
+  };
+
+  const getStatusBadge = (status: string) => {
+    const normalizedStatus = status?.toLowerCase() || 'pending';
+    const colors = {
+      'active': 'bg-green-100 text-green-800 border-green-200',
+      'pending': 'bg-yellow-100 text-yellow-800 border-yellow-200',
+      'expired': 'bg-red-100 text-red-800 border-red-200'
+    };
+    
+    return (
+      <Badge className={`${colors[normalizedStatus] || colors.pending} transition-colors`}>
+        {normalizedStatus.charAt(0).toUpperCase() + normalizedStatus.slice(1)}
+      </Badge>
+    );
+  };
+
+  // Data fetching
   const fetchMembers = async (showRefreshLoader = false) => {
     try {
-      if (showRefreshLoader) {
-        setIsRefreshing(true);
-      } else {
-        setIsLoading(true);
-      }
+      if (showRefreshLoader) setIsRefreshing(true);
+      else setIsLoading(true);
       setError(null);
 
-      console.log('Fetching members from Google Sheets...');
       const response = await membersAPI.getAll();
       
-      if (response.success) {
-        console.log('Members fetched successfully:', response.members);
-        setMembers(response.members || []);
+      if (response.success && response.members) {
+        // Clean and map data properly
+        const cleanedMembers = response.members.map((member, index) => ({
+          id: member.id || `member_${index}`,
+          name: member.name || 'Unknown',
+          phone: member.phone || '',
+          cnic: member.cnic || '',
+          address: member.address || '',
+          membershipType: member.membershipType || '',
+          feeType: member.feeType || '',
+          joiningDate: member.joiningDate || '',
+          expiryDate: member.expiryDate || '',
+          fee: typeof member.fee === 'number' ? member.fee : parseFloat(member.fee) || 0,
+          status: (member.status || member.membershipStatus || 'pending').toLowerCase() as 'active' | 'pending' | 'expired',
+          createdAt: member.createdAt,
+          updatedAt: member.updatedAt,
+        }));
+        
+        setMembers(cleanedMembers);
       } else {
-        console.error('Failed to fetch members:', response.error);
         setError(response.error || 'Failed to fetch members');
       }
     } catch (error) {
-      console.error('Error fetching members:', error);
       setError('Network error: Unable to fetch members');
     } finally {
       setIsLoading(false);
@@ -184,23 +263,12 @@ const Members = () => {
     }
   };
 
-  // Load members on component mount
+  // Effects
   useEffect(() => {
     fetchMembers();
   }, []);
 
-  // Calculate total fee dynamically
-  const calculateTotalFee = () => {
-    const admissionFee = parseFloat(watchAdmissionFee || "0");
-    const monthlyFee = parseFloat(watchMonthlyFee || "0");
-    const feeType = watchFeeType;
-    const multiplier = feeTypes.find(f => f.value === feeType)?.multiplier || 1;
-    
-    return admissionFee + (monthlyFee * multiplier);
-  };
-
-  // Update monthly fee when membership type changes
-  React.useEffect(() => {
+  useEffect(() => {
     if (watchMembershipType) {
       const membershipType = membershipTypes.find(type => type.value === watchMembershipType);
       if (membershipType) {
@@ -209,16 +277,26 @@ const Members = () => {
     }
   }, [watchMembershipType, form]);
 
-  // Filter members based on search term and status
+  useEffect(() => {
+    if (watchFeeType) {
+      const feeTypeData = feeTypes.find(f => f.value === watchFeeType);
+      if (feeTypeData?.isDailyPass) {
+        form.setValue("admissionFee", "0");
+      }
+    }
+  }, [watchFeeType, form]);
+
+  // Filter members
   const filteredMembers = members.filter(member => {
     const matchesSearch = 
-      member.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-      member.phone.includes(searchTerm);
+      member.name?.toLowerCase().includes(searchTerm.toLowerCase()) || 
+      member.phone?.includes(searchTerm);
     const matchesStatus = statusFilter === 'all' || member.status === statusFilter;
-    return matchesSearch && matchesStatus;
+    const matchesMembership = membershipFilter === 'all' || member.membershipType === membershipFilter;
+    return matchesSearch && matchesStatus && matchesMembership;
   });
 
-  // Calculate statistics from real data
+  // Statistics
   const totalMembers = members.length;
   const activeMembers = members.filter(m => m.status === 'active').length;
   const expiredMembers = members.filter(m => m.status === 'expired').length;
@@ -229,37 +307,13 @@ const Members = () => {
     return joinDate.getMonth() === currentMonth && joinDate.getFullYear() === currentYear;
   }).length;
 
-  // Get status badge styling
-  const getStatusBadge = (status: 'active' | 'pending' | 'expired') => {
-    const colors = {
-      'active': 'bg-emerald-500/20 text-emerald-700 border-emerald-500/30',
-      'pending': 'bg-amber-500/20 text-amber-700 border-amber-500/30',
-      'expired': 'bg-red-500/20 text-red-700 border-red-500/30'
-    };
-    
-    return (
-      <Badge className={`${colors[status]} transition-colors duration-150`}>
-        {status.charAt(0).toUpperCase() + status.slice(1)}
-      </Badge>
-    );
-  };
-
-  // Form submission handler
+  // Form handlers
   const onSubmit = async (data: z.infer<typeof memberFormSchema>) => {
     setIsSubmitting(true);
-    
     try {
-      console.log('Submitting member data:', data);
-      
-      // Calculate expiry date based on fee type
       const joiningDate = new Date();
-      const expiryDate = new Date(joiningDate);
-      const feeTypeData = feeTypes.find(ft => ft.value === data.feeType);
-      if (feeTypeData) {
-        expiryDate.setMonth(expiryDate.getMonth() + feeTypeData.multiplier);
-      }
+      const expiryDate = calculateExpiryDate(joiningDate.toISOString().split('T')[0], data.feeType);
 
-      // Prepare member data for API
       const memberData = {
         name: data.name,
         phone: data.phone,
@@ -268,60 +322,38 @@ const Members = () => {
         membershipType: membershipTypes.find(mt => mt.value === data.membershipType)?.label || data.membershipType,
         feeType: feeTypes.find(ft => ft.value === data.feeType)?.label || data.feeType,
         joiningDate: joiningDate.toISOString().split('T')[0],
-        expiryDate: expiryDate.toISOString().split('T')[0],
+        expiryDate,
         fee: calculateTotalFee(),
         status: 'active'
       };
 
-      // Submit to Google Sheets
       const response = await membersAPI.add(memberData);
       
       if (response.success) {
-        console.log('Member added successfully:', response.member);
-        
-        // Send WhatsApp notification if toggled
         if (data.sendWhatsApp) {
           try {
             const membershipLabel = membershipTypes.find(type => type.value === data.membershipType)?.label || data.membershipType;
-            const totalFee = calculateTotalFee();
-            
             await whatsappService.sendMemberReceipt(
-              data.name,
-              data.phone,
-              membershipLabel,
-              totalFee,
-              new Date().toLocaleDateString('en-US')
+              data.name, data.phone, membershipLabel, 
+              calculateTotalFee(), new Date().toLocaleDateString('en-US')
             );
-            
-            console.log('WhatsApp notification sent');
           } catch (error) {
-            console.error('Failed to send WhatsApp notification:', error);
+            console.error('WhatsApp notification failed:', error);
           }
         }
         
-        // Close dialog and show success
-        setIsAddMemberDialogOpen(false);
+        setIsAddDialogOpen(false);
+        setSuccessMessage('Member added successfully!');
         setIsSuccessDialogOpen(true);
-        
-        // Show toast notification
-        toast({
-          title: "Member Added Successfully",
-          description: `${data.name} has been added to your member database.`,
-        });
-        
-        // Refresh members list
         await fetchMembers();
-        
-        // Reset form
         form.reset();
       } else {
         throw new Error(response.error || 'Failed to add member');
       }
     } catch (error) {
-      console.error('Error submitting form:', error);
       toast({
         title: "Error Adding Member",
-        description: error instanceof Error ? error.message : "There was a problem adding the member. Please try again.",
+        description: error instanceof Error ? error.message : "Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -329,15 +361,210 @@ const Members = () => {
     }
   };
 
+  const onEdit = async (data: z.infer<typeof memberFormSchema>) => {
+    if (!selectedMember) return;
+    
+    setIsSubmitting(true);
+    try {
+      const updatedData = {
+        ...selectedMember,
+        name: data.name,
+        phone: data.phone,
+        cnic: data.cnic,
+        address: data.address,
+        membershipType: membershipTypes.find(mt => mt.value === data.membershipType)?.label || data.membershipType,
+        feeType: feeTypes.find(ft => ft.value === data.feeType)?.label || data.feeType,
+        fee: calculateTotalFee(),
+      };
+
+      const response = await membersAPI.update(selectedMember.id, updatedData);
+      
+      if (response.success) {
+        if (data.sendWhatsApp) {
+          try {
+            const membershipLabel = membershipTypes.find(type => type.value === data.membershipType)?.label || data.membershipType;
+            await whatsappService.sendMemberReceipt(
+              data.name, data.phone, membershipLabel, 
+              calculateTotalFee(), new Date().toLocaleDateString('en-US')
+            );
+          } catch (error) {
+            console.error('WhatsApp notification failed:', error);
+          }
+        }
+        
+        setIsEditDialogOpen(false);
+        setSuccessMessage('Member updated successfully!');
+        setIsSuccessDialogOpen(true);
+        await fetchMembers();
+      } else {
+        throw new Error(response.error || 'Failed to update member');
+      }
+    } catch (error) {
+      toast({
+        title: "Error Updating Member",
+        description: error instanceof Error ? error.message : "Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const onRenew = async (data: z.infer<typeof renewSchema>) => {
+    if (!selectedMember) return;
+    
+    setIsSubmitting(true);
+    try {
+      const expiryDate = calculateExpiryDate(data.startDate, data.feeType);
+      const feeTypeData = feeTypes.find(ft => ft.value === data.feeType);
+      const monthlyFee = membershipTypes.find(mt => mt.value.includes(selectedMember.membershipType.toLowerCase().replace(/\s/g, '')))?.fee || 0;
+      
+      let totalFee = monthlyFee;
+      if (!feeTypeData?.isDailyPass) {
+        totalFee = monthlyFee * (feeTypeData?.multiplier || 1);
+      }
+
+      const updatedData = {
+        ...selectedMember,
+        feeType: feeTypes.find(ft => ft.value === data.feeType)?.label || data.feeType,
+        joiningDate: data.startDate,
+        expiryDate,
+        fee: totalFee,
+        status: 'active' as const
+      };
+
+      const response = await membersAPI.update(selectedMember.id, updatedData);
+      
+      if (response.success) {
+        if (data.sendWhatsApp) {
+          try {
+            await whatsappService.sendMemberReceipt(
+              selectedMember.name, selectedMember.phone, selectedMember.membershipType,
+              totalFee, new Date(data.startDate).toLocaleDateString('en-US')
+            );
+          } catch (error) {
+            console.error('WhatsApp notification failed:', error);
+          }
+        }
+        
+        setIsRenewDialogOpen(false);
+        setSuccessMessage('Membership renewed successfully!');
+        setIsSuccessDialogOpen(true);
+        await fetchMembers();
+      } else {
+        throw new Error(response.error || 'Failed to renew membership');
+      }
+    } catch (error) {
+      toast({
+        title: "Error Renewing Membership",
+        description: error instanceof Error ? error.message : "Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const onDelete = async () => {
+    if (!selectedMember) return;
+    
+    setIsSubmitting(true);
+    try {
+      const response = await membersAPI.delete(selectedMember.id);
+      
+      if (response.success) {
+        setIsDeleteDialogOpen(false);
+        setSuccessMessage('Member deleted successfully!');
+        setIsSuccessDialogOpen(true);
+        await fetchMembers();
+      } else {
+        throw new Error(response.error || 'Failed to delete member');
+      }
+    } catch (error) {
+      toast({
+        title: "Error Deleting Member",
+        description: error instanceof Error ? error.message : "Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const exportToCSV = () => {
+    const headers = ['Name', 'Phone', 'CNIC', 'Address', 'Membership Type', 'Fee Type', 'Joining Date', 'Expiry Date', 'Fee', 'Status'];
+    const csvContent = [
+      headers.join(','),
+      ...filteredMembers.map(member => [
+        member.name,
+        member.phone,
+        member.cnic,
+        member.address,
+        member.membershipType,
+        member.feeType,
+        member.joiningDate,
+        member.expiryDate,
+        member.fee,
+        member.status
+      ].join(','))
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `gym-members-${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+    window.URL.revokeObjectURL(url);
+  };
+
+  // Action handlers
+  const handleEdit = (member: Member) => {
+    setSelectedMember(member);
+    const membershipValue = membershipTypes.find(mt => mt.label === member.membershipType)?.value || 'strength';
+    const feeTypeValue = feeTypes.find(ft => ft.label === member.feeType)?.value || 'monthly';
+    
+    form.reset({
+      name: member.name,
+      phone: member.phone,
+      cnic: member.cnic,
+      address: member.address,
+      membershipType: membershipValue,
+      feeType: feeTypeValue,
+      admissionFee: "2000",
+      monthlyFee: membershipTypes.find(mt => mt.value === membershipValue)?.fee.toString() || "3000",
+      sendWhatsApp: true,
+    });
+    setIsEditDialogOpen(true);
+  };
+
+  const handleRenew = (member: Member) => {
+    setSelectedMember(member);
+    renewForm.reset({
+      startDate: new Date().toISOString().split('T')[0],
+      feeType: "",
+      sendWhatsApp: true,
+    });
+    setIsRenewDialogOpen(true);
+  };
+
+  const handleView = (member: Member) => {
+    setSelectedMember(member);
+    setIsViewDialogOpen(true);
+  };
+
+  const handleDelete = (member: Member) => {
+    setSelectedMember(member);
+    setIsDeleteDialogOpen(true);
+  };
+
   // Loading state
   if (isLoading) {
     return (
-      <div className="space-y-4 sm:space-y-6">
-        <div className="flex items-center justify-center py-12">
-          <div className="text-center">
-            <Loader2 className="h-8 w-8 animate-spin text-blue-600 mx-auto mb-4" />
-            <p className="text-gray-600">Loading members from Google Sheets...</p>
-          </div>
+      <div className="flex items-center justify-center py-12">
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin text-blue-600 mx-auto mb-4" />
+          <p className="text-gray-600">Loading members...</p>
         </div>
       </div>
     );
@@ -346,162 +573,157 @@ const Members = () => {
   // Error state
   if (error) {
     return (
-      <div className="space-y-4 sm:space-y-6">
-        <div className="flex items-center justify-center py-12">
-          <div className="text-center">
-            <AlertCircle className="h-8 w-8 text-red-600 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-800 mb-2">Failed to Load Members</h3>
-            <p className="text-gray-600 mb-4">{error}</p>
-            <Button onClick={() => fetchMembers()} className="bg-blue-600 hover:bg-blue-700">
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Try Again
-            </Button>
-          </div>
+      <div className="flex items-center justify-center py-12">
+        <div className="text-center">
+          <AlertCircle className="h-8 w-8 text-red-600 mx-auto mb-4" />
+          <h3 className="text-lg font-medium text-gray-800 mb-2">Failed to Load Members</h3>
+          <p className="text-gray-600 mb-4">{error}</p>
+          <Button onClick={() => fetchMembers()} className="bg-blue-600 hover:bg-blue-700">
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Try Again
+          </Button>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-4 sm:space-y-6">
+    <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col space-y-3 sm:space-y-0 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-3 sm:space-y-0">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-800 mb-1 sm:mb-2 flex items-center">
-            <Users className="mr-2 sm:mr-3 h-6 w-6 sm:h-7 sm:w-7 text-blue-600" />
+          <h1 className="text-3xl font-bold text-gray-800 flex items-center">
+            <Users className="mr-3 h-7 w-7 text-blue-600" />
             Members Management
           </h1>
-          <p className="text-gray-600 text-sm sm:text-base">
-            Manage your gym members and their memberships
-          </p>
+          <p className="text-gray-600">Manage your gym members and memberships</p>
         </div>
         <div className="flex gap-2">
-          <Button 
-            onClick={() => fetchMembers(true)} 
-            variant="outline"
-            disabled={isRefreshing}
-            className="bg-white/60 hover:bg-white"
-          >
-            {isRefreshing ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <RefreshCw className="h-4 w-4" />
-            )}
+          <Button onClick={() => fetchMembers(true)} variant="outline" disabled={isRefreshing}>
+            {isRefreshing ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
           </Button>
-          <Button 
-            onClick={() => setIsAddMemberDialogOpen(true)} 
-            className="w-full sm:w-auto premium-button transition-transform duration-200 hover:scale-105"
-          >
+          <Button onClick={exportToCSV} variant="outline">
+            <Download className="h-4 w-4 mr-2" />
+            Export CSV
+          </Button>
+          <Button onClick={() => setIsAddDialogOpen(true)} className="premium-button">
             <Plus className="mr-2 h-4 w-4" />
             Add Member
           </Button>
         </div>
       </div>
 
-      {/* Summary Cards - Using Real Data */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-6">
-        <Card className="glass-card border-white/40 hover:shadow-xl transition-all duration-200">
-          <CardContent className="pt-4 sm:pt-6">
+      {/* Summary Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        <Card className="glass-card">
+          <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-gray-600 text-sm font-medium">Total Members</p>
-                <p className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-800">{totalMembers}</p>
+                <p className="text-3xl font-bold text-gray-800">{totalMembers}</p>
               </div>
-              <div className="p-2 sm:p-3 rounded-xl bg-gradient-to-r from-blue-500 to-blue-600 shadow-lg">
-                <Users className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-white" />
+              <div className="p-3 rounded-xl bg-gradient-to-r from-blue-500 to-blue-600">
+                <Users className="h-6 w-6 text-white" />
               </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="glass-card border-white/40 hover:shadow-xl transition-all duration-200">
-          <CardContent className="pt-4 sm:pt-6">
+        <Card className="glass-card">
+          <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-gray-600 text-sm font-medium">Active Members</p>
-                <p className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-800">{activeMembers}</p>
+                <p className="text-3xl font-bold text-gray-800">{activeMembers}</p>
               </div>
-              <div className="p-2 sm:p-3 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 shadow-lg">
-                <UserCheck className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-white" />
+              <div className="p-3 rounded-xl bg-gradient-to-r from-green-500 to-green-600">
+                <UserCheck className="h-6 w-6 text-white" />
               </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="glass-card border-white/40 hover:shadow-xl transition-all duration-200">
-          <CardContent className="pt-4 sm:pt-6">
+        <Card className="glass-card">
+          <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-gray-600 text-sm font-medium">Expired/Expiring</p>
-                <p className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-800">{expiredMembers}</p>
+                <p className="text-gray-600 text-sm font-medium">Expired</p>
+                <p className="text-3xl font-bold text-gray-800">{expiredMembers}</p>
               </div>
-              <div className="p-2 sm:p-3 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 shadow-lg">
-                <Clock className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-white" />
+              <div className="p-3 rounded-xl bg-gradient-to-r from-red-500 to-red-600">
+                <Clock className="h-6 w-6 text-white" />
               </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="glass-card border-white/40 hover:shadow-xl transition-all duration-200">
-          <CardContent className="pt-4 sm:pt-6">
+        <Card className="glass-card">
+          <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-gray-600 text-sm font-medium">New This Month</p>
-                <p className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-800">{thisMonthMembers}</p>
+                <p className="text-3xl font-bold text-gray-800">{thisMonthMembers}</p>
               </div>
-              <div className="p-2 sm:p-3 rounded-xl bg-gradient-to-r from-purple-500 to-purple-600 shadow-lg">
-                <UserPlus className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-white" />
+              <div className="p-3 rounded-xl bg-gradient-to-r from-purple-500 to-purple-600">
+                <UserPlus className="h-6 w-6 text-white" />
               </div>
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Filters and Tabs */}
-      <Card className="glass-card border-white/40">
-        <CardContent className="pt-4 sm:pt-6">
-          <div className="flex flex-col space-y-4 lg:flex-row lg:space-y-0 lg:space-x-4">
+      {/* Filters */}
+      <Card className="glass-card">
+        <CardContent className="pt-6">
+          <div className="flex flex-col lg:flex-row lg:space-x-4 space-y-4 lg:space-y-0">
             <div className="flex-1">
               <div className="relative">
                 <Search className="absolute left-3 top-3 h-4 w-4 text-gray-500" />
                 <Input
-                  placeholder="Search members by name or phone..."
+                  placeholder="Search by name or phone..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10 bg-white/70 border-white/60 text-gray-800 placeholder:text-gray-500 transition-all focus:ring-2 focus:ring-blue-500/50 focus:border-blue-400"
+                  className="pl-10"
                 />
               </div>
             </div>
             
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-full lg:w-[180px] bg-white/70 border-white/60 text-gray-800 transition-all focus:ring-2 focus:ring-blue-500/50 focus:border-blue-400">
+              <SelectTrigger className="lg:w-[180px]">
                 <SelectValue placeholder="Filter by status" />
               </SelectTrigger>
-              <SelectContent className="bg-white/95 backdrop-blur-md">
+              <SelectContent>
                 <SelectItem value="all">All Status</SelectItem>
                 <SelectItem value="active">Active</SelectItem>
                 <SelectItem value="pending">Pending</SelectItem>
                 <SelectItem value="expired">Expired</SelectItem>
               </SelectContent>
             </Select>
+
+            <Select value={membershipFilter} onValueChange={setMembershipFilter}>
+              <SelectTrigger className="lg:w-[180px]">
+                <SelectValue placeholder="Filter by membership" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Memberships</SelectItem>
+                {membershipTypes.map(type => (
+                  <SelectItem key={type.value} value={type.label}>{type.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </CardContent>
       </Card>
 
-      {/* Tabs for Members List View */}
+      {/* Members Table */}
       <Tabs defaultValue="list" className="w-full">
         <TabsList className="grid grid-cols-2 w-full max-w-[400px] mb-4">
-          <TabsTrigger value="list" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all duration-200">
-            List View
-          </TabsTrigger>
-          <TabsTrigger value="cards" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all duration-200">
-            Card View
-          </TabsTrigger>
+          <TabsTrigger value="list">List View</TabsTrigger>
+          <TabsTrigger value="cards">Card View</TabsTrigger>
         </TabsList>
         
-        <TabsContent value="list" className="mt-0 animate-in fade-in-50 slide-in-from-left-3 duration-300">
-          {/* Table View - Desktop */}
-          <Card className="glass-card border-white/40 hidden md:block">
+        <TabsContent value="list">
+          <Card className="glass-card hidden md:block">
             <CardContent className="p-0 overflow-x-auto">
               {filteredMembers.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-12">
@@ -510,42 +732,49 @@ const Members = () => {
                     {members.length === 0 ? 'No members yet' : 'No members found'}
                   </h3>
                   <p className="text-gray-500 mt-1">
-                    {members.length === 0 
-                      ? 'Add your first member to get started' 
-                      : 'Try adjusting your search or filters'
-                    }
+                    {members.length === 0 ? 'Add your first member to get started' : 'Try adjusting your filters'}
                   </p>
                 </div>
               ) : (
                 <Table>
                   <TableHeader>
-                    <TableRow className="border-gray-200">
-                      <TableHead className="text-gray-600 min-w-[150px]">Member Name</TableHead>
-                      <TableHead className="text-gray-600 min-w-[120px]">Phone Number</TableHead>
-                      <TableHead className="text-gray-600 min-w-[150px]">Membership</TableHead>
-                      <TableHead className="text-gray-600 min-w-[120px]">Fee Type</TableHead>
-                      <TableHead className="text-gray-600 min-w-[100px]">Fee</TableHead>
-                      <TableHead className="text-gray-600 min-w-[120px]">Expiry Date</TableHead>
-                      <TableHead className="text-gray-600 min-w-[100px]">Status</TableHead>
+                    <TableRow>
+                      <TableHead>Name</TableHead>
+                      <TableHead>Phone</TableHead>
+                      <TableHead>Membership</TableHead>
+                      <TableHead>Fee Type</TableHead>
+                      <TableHead>Fee</TableHead>
+                      <TableHead>Expiry</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {filteredMembers.map((member) => (
-                      <TableRow 
-                        key={member.id} 
-                        className="border-gray-100 hover:bg-white/50 transition-colors duration-150"
-                      >
-                        <TableCell className="text-gray-800 font-medium">{member.name}</TableCell>
-                        <TableCell className="text-gray-600">{member.phone}</TableCell>
-                        <TableCell className="text-gray-600">{member.membershipType}</TableCell>
-                        <TableCell className="text-gray-600">{member.feeType}</TableCell>
-                        <TableCell className="text-gray-800 font-semibold">
-                          Rs. {member.fee ? member.fee.toLocaleString('en-US') : '0'}
-                        </TableCell>
-                        <TableCell className="text-gray-600">
-                          {member.expiryDate ? new Date(member.expiryDate).toLocaleDateString('en-US') : 'N/A'}
-                        </TableCell>
+                      <TableRow key={member.id}>
+                        <TableCell className="font-medium">{member.name}</TableCell>
+                        <TableCell>{member.phone}</TableCell>
+                        <TableCell>{member.membershipType}</TableCell>
+                        <TableCell>{member.feeType}</TableCell>
+                        <TableCell>Rs. {member.fee.toLocaleString()}</TableCell>
+                        <TableCell>{formatDate(member.expiryDate)}</TableCell>
                         <TableCell>{getStatusBadge(member.status)}</TableCell>
+                        <TableCell>
+                          <div className="flex space-x-1">
+                            <Button size="sm" variant="outline" onClick={() => handleView(member)}>
+                              <Eye className="h-3 w-3" />
+                            </Button>
+                            <Button size="sm" variant="outline" onClick={() => handleEdit(member)}>
+                              <Edit className="h-3 w-3" />
+                            </Button>
+                            <Button size="sm" variant="outline" onClick={() => handleRenew(member)}>
+                              <RotateCcw className="h-3 w-3" />
+                            </Button>
+                            <Button size="sm" variant="outline" onClick={() => handleDelete(member)}>
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -554,74 +783,57 @@ const Members = () => {
             </CardContent>
           </Card>
 
-          {/* Mobile List View */}
+          {/* Mobile List */}
           <div className="space-y-4 md:hidden">
             {filteredMembers.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-8 bg-white/50 rounded-lg">
+              <div className="flex flex-col items-center justify-center py-8">
                 <Users className="h-10 w-10 text-gray-400 mb-3" />
-                <h3 className="text-base font-medium text-gray-700">
-                  {members.length === 0 ? 'No members yet 📭' : 'No members found 📭'}
-                </h3>
-                <p className="text-gray-500 mt-1 text-sm">
-                  {members.length === 0 
-                    ? 'Add your first member to get started' 
-                    : 'Try adjusting your search or filters'
-                  }
-                </p>
+                <h3 className="text-base font-medium text-gray-700">No members found</h3>
               </div>
             ) : (
               filteredMembers.map((member) => (
-                <Card key={member.id} className="glass-card border-white/40 hover:shadow-md transition-all duration-200">
+                <Card key={member.id} className="glass-card">
                   <CardContent className="p-4">
-                    <div className="flex justify-between items-start">
+                    <div className="flex justify-between items-start mb-3">
                       <div>
-                        <h3 className="font-semibold text-gray-800 text-lg">{member.name}</h3>
-                        <div className="flex items-center text-gray-600 text-sm mt-1">
-                          <Phone className="w-3.5 h-3.5 mr-1.5" />
-                          {member.phone}
-                        </div>
+                        <h3 className="font-semibold text-lg">{member.name}</h3>
+                        <p className="text-gray-600 text-sm">{member.phone}</p>
                       </div>
-                      <div>
-                        {getStatusBadge(member.status)}
-                      </div>
+                      {getStatusBadge(member.status)}
                     </div>
                     
-                    <div className="grid grid-cols-2 gap-3 mt-4">
-                      <div className="bg-white/40 p-2 rounded-md">
+                    <div className="grid grid-cols-2 gap-3 mb-4">
+                      <div className="bg-white/40 p-2 rounded">
                         <p className="text-xs text-gray-500">Membership</p>
-                        <p className="text-sm font-medium text-gray-700">{member.membershipType}</p>
+                        <p className="text-sm font-medium">{member.membershipType}</p>
                       </div>
-                      <div className="bg-white/40 p-2 rounded-md">
+                      <div className="bg-white/40 p-2 rounded">
                         <p className="text-xs text-gray-500">Fee</p>
-                        <p className="text-sm font-medium text-gray-700">
-                          Rs. {member.fee ? member.fee.toLocaleString('en-US') : '0'}
-                        </p>
+                        <p className="text-sm font-medium">Rs. {member.fee.toLocaleString()}</p>
                       </div>
-                      <div className="bg-white/40 p-2 rounded-md">
+                      <div className="bg-white/40 p-2 rounded">
                         <p className="text-xs text-gray-500">Fee Type</p>
-                        <p className="text-sm font-medium text-gray-700">{member.feeType}</p>
+                        <p className="text-sm font-medium">{member.feeType}</p>
                       </div>
-                      <div className="bg-white/40 p-2 rounded-md">
-                        <p className="text-xs text-gray-500">Expiry Date</p>
-                        <p className="text-sm font-medium text-gray-700">
-                          {member.expiryDate ? new Date(member.expiryDate).toLocaleDateString('en-US') : 'N/A'}
-                        </p>
+                      <div className="bg-white/40 p-2 rounded">
+                        <p className="text-xs text-gray-500">Expiry</p>
+                        <p className="text-sm font-medium">{formatDate(member.expiryDate)}</p>
                       </div>
                     </div>
                     
-                    <div className="mt-4 flex gap-2">
-                      <Button 
-                        size="sm" 
-                        variant="outline" 
-                        className="flex-1 text-xs bg-white/60 hover:bg-white transition-colors duration-150"
-                      >
-                        Details
+                    <div className="flex gap-2">
+                      <Button size="sm" variant="outline" className="flex-1" onClick={() => handleView(member)}>
+                        <Eye className="h-3 w-3 mr-1" />
+                        View
                       </Button>
-                      <Button 
-                        size="sm" 
-                        className="flex-1 text-xs bg-blue-500 hover:bg-blue-600 text-white transition-colors duration-150"
-                      >
-                        Renew
+                      <Button size="sm" variant="outline" onClick={() => handleEdit(member)}>
+                        <Edit className="h-3 w-3" />
+                      </Button>
+                      <Button size="sm" variant="outline" onClick={() => handleRenew(member)}>
+                        <RotateCcw className="h-3 w-3" />
+                      </Button>
+                      <Button size="sm" variant="outline" onClick={() => handleDelete(member)}>
+                        <Trash2 className="h-3 w-3" />
                       </Button>
                     </div>
                   </CardContent>
@@ -631,78 +843,59 @@ const Members = () => {
           </div>
         </TabsContent>
         
-        <TabsContent value="cards" className="animate-in fade-in-50 slide-in-from-right-3 duration-300">
-          {/* Card View */}
+        <TabsContent value="cards">
           {filteredMembers.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12 bg-white/50 rounded-lg">
+            <div className="flex flex-col items-center justify-center py-12">
               <Users className="h-12 w-12 text-gray-400 mb-4" />
-              <h3 className="text-lg font-medium text-gray-700">
-                {members.length === 0 ? 'No members yet 📭' : 'No members found 📭'}
-              </h3>
-              <p className="text-gray-500 mt-1">
-                {members.length === 0 
-                  ? 'Add your first member to get started' 
-                  : 'Try adjusting your search or filters'
-                }
-              </p>
+              <h3 className="text-lg font-medium text-gray-700">No members found</h3>
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {filteredMembers.map((member) => (
-                <Card key={member.id} className="glass-card border-white/40 hover:shadow-xl transition-all duration-200">
-                  <CardContent className="pt-4 pb-4">
+                <Card key={member.id} className="glass-card">
+                  <CardContent className="pt-4">
                     <div className="flex items-start justify-between mb-3">
                       <div className="flex items-center">
-                        <div className="w-10 h-10 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 flex items-center justify-center text-white font-semibold text-lg">
+                        <div className="w-10 h-10 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 flex items-center justify-center text-white font-semibold">
                           {member.name.charAt(0)}
                         </div>
                         <div className="ml-3">
-                          <h3 className="font-semibold text-gray-800">{member.name}</h3>
-                          <div className="flex items-center text-gray-600 text-xs">
-                            <Phone className="w-3 h-3 mr-1" />
-                            {member.phone}
-                          </div>
+                          <h3 className="font-semibold">{member.name}</h3>
+                          <p className="text-xs text-gray-600">{member.phone}</p>
                         </div>
                       </div>
+                      {getStatusBadge(member.status)}
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-2 mb-3 text-xs">
                       <div>
-                        {getStatusBadge(member.status)}
-                      </div>
-                    </div>
-                    
-                    <div className="grid grid-cols-2 gap-2 mb-3">
-                      <div className="text-xs">
                         <p className="text-gray-500">Membership</p>
-                        <p className="text-gray-800 font-medium">{member.membershipType}</p>
+                        <p className="font-medium">{member.membershipType}</p>
                       </div>
-                      <div className="text-xs">
+                      <div>
                         <p className="text-gray-500">Fee</p>
-                        <p className="text-gray-800 font-medium">Rs. {member.fee ? member.fee.toLocaleString('en-US') : '0'}</p>
+                        <p className="font-medium">Rs. {member.fee.toLocaleString()}</p>
                       </div>
-                      <div className="text-xs">
+                      <div>
                         <p className="text-gray-500">Fee Type</p>
-                        <p className="text-gray-800 font-medium">{member.feeType}</p>
+                        <p className="font-medium">{member.feeType}</p>
                       </div>
-                      <div className="text-xs">
-                        <p className="text-gray-500">Expiry Date</p>
-                        <p className="text-gray-800 font-medium">
-                          {member.expiryDate ? new Date(member.expiryDate).toLocaleDateString('en-US') : 'N/A'}
-                        </p>
+                      <div>
+                        <p className="text-gray-500">Expiry</p>
+                        <p className="font-medium">{formatDate(member.expiryDate)}</p>
                       </div>
                     </div>
                     
-                    <div className="border-t border-gray-100 pt-3 flex gap-2">
-                      <Button 
-                        size="sm" 
-                        variant="outline" 
-                        className="flex-1 text-xs bg-white/60 hover:bg-white transition-colors duration-150"
-                      >
-                        View Details
+                    <div className="border-t pt-3 flex gap-1">
+                      <Button size="sm" variant="outline" className="flex-1 text-xs" onClick={() => handleView(member)}>
+                        <Eye className="h-3 w-3 mr-1" />
+                        View
                       </Button>
-                      <Button 
-                        size="sm" 
-                        className="flex-1 text-xs bg-blue-500 hover:bg-blue-600 text-white transition-colors duration-150"
-                      >
-                        Renew <ArrowRight className="ml-1 h-3 w-3" />
+                      <Button size="sm" variant="outline" onClick={() => handleEdit(member)}>
+                        <Edit className="h-3 w-3" />
+                      </Button>
+                      <Button size="sm" variant="outline" onClick={() => handleRenew(member)}>
+                        <RotateCcw className="h-3 w-3" />
                       </Button>
                     </div>
                   </CardContent>
@@ -714,35 +907,29 @@ const Members = () => {
       </Tabs>
 
       {/* Add Member Dialog */}
-      <Dialog open={isAddMemberDialogOpen} onOpenChange={setIsAddMemberDialogOpen}>
-        <DialogContent className="glass-card border-white/40 sm:max-w-md md:max-w-lg">
+      <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+        <DialogContent className="glass-card sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle className="text-xl font-semibold text-gray-800 flex items-center">
+            <DialogTitle className="flex items-center">
               <UserPlus className="mr-2 h-5 w-5 text-blue-600" />
               Add New Member
             </DialogTitle>
-            <DialogDescription className="text-gray-600">
-              Complete the form below to register a new gym member.
-            </DialogDescription>
+            <DialogDescription>Complete the form to register a new member.</DialogDescription>
           </DialogHeader>
 
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-4">
                 <FormField
                   control={form.control}
                   name="name"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel className="text-gray-700">Full Name</FormLabel>
+                      <FormLabel>Full Name</FormLabel>
                       <FormControl>
                         <div className="relative">
                           <User className="absolute left-3 top-3 h-4 w-4 text-gray-500" />
-                          <Input 
-                            placeholder="Enter full name" 
-                            className="pl-10 bg-white/70 border-white/60 transition-all focus:ring-2 focus:ring-blue-500/50 focus:border-blue-400"
-                            {...field} 
-                          />
+                          <Input placeholder="Enter full name" className="pl-10" {...field} />
                         </div>
                       </FormControl>
                       <FormMessage />
@@ -755,15 +942,11 @@ const Members = () => {
                   name="phone"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel className="text-gray-700">Phone Number</FormLabel>
+                      <FormLabel>Phone Number</FormLabel>
                       <FormControl>
                         <div className="relative">
                           <Phone className="absolute left-3 top-3 h-4 w-4 text-gray-500" />
-                          <Input 
-                            placeholder="03xx-xxxxxxx" 
-                            className="pl-10 bg-white/70 border-white/60 transition-all focus:ring-2 focus:ring-blue-500/50 focus:border-blue-400"
-                            {...field} 
-                          />
+                          <Input placeholder="03xxxxxxxxx" className="pl-10" {...field} />
                         </div>
                       </FormControl>
                       <FormMessage />
@@ -772,21 +955,17 @@ const Members = () => {
                 />
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-4">
                 <FormField
                   control={form.control}
                   name="cnic"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel className="text-gray-700">CNIC Number</FormLabel>
+                      <FormLabel>CNIC Number</FormLabel>
                       <FormControl>
                         <div className="relative">
                           <ShieldCheck className="absolute left-3 top-3 h-4 w-4 text-gray-500" />
-                          <Input 
-                            placeholder="xxxxx-xxxxxxx-x" 
-                            className="pl-10 bg-white/70 border-white/60 transition-all focus:ring-2 focus:ring-blue-500/50 focus:border-blue-400"
-                            {...field} 
-                          />
+                          <Input placeholder="xxxxx-xxxxxxx-x" className="pl-10" {...field} />
                         </div>
                       </FormControl>
                       <FormMessage />
@@ -799,15 +978,11 @@ const Members = () => {
                   name="address"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel className="text-gray-700">Address</FormLabel>
+                      <FormLabel>Address</FormLabel>
                       <FormControl>
                         <div className="relative">
                           <MapPin className="absolute left-3 top-3 h-4 w-4 text-gray-500" />
-                          <Input 
-                            placeholder="Enter address" 
-                            className="pl-10 bg-white/70 border-white/60 transition-all focus:ring-2 focus:ring-blue-500/50 focus:border-blue-400"
-                            {...field} 
-                          />
+                          <Input placeholder="Enter address" className="pl-10" {...field} />
                         </div>
                       </FormControl>
                       <FormMessage />
@@ -816,26 +991,23 @@ const Members = () => {
                 />
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-4">
                 <FormField
                   control={form.control}
                   name="membershipType"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel className="text-gray-700">Membership Type</FormLabel>
-                      <Select
-                        onValueChange={field.onChange}
-                        defaultValue={field.value}
-                      >
+                      <FormLabel>Membership Type</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
                         <FormControl>
                           <div className="relative">
                             <Dumbbell className="absolute left-3 top-3 h-4 w-4 text-gray-500 pointer-events-none" />
-                            <SelectTrigger className="pl-10 bg-white/70 border-white/60 transition-all focus:ring-2 focus:ring-blue-500/50 focus:border-blue-400">
-                              <SelectValue placeholder="Select membership type" />
+                            <SelectTrigger className="pl-10">
+                              <SelectValue placeholder="Select type" />
                             </SelectTrigger>
                           </div>
                         </FormControl>
-                        <SelectContent className="bg-white/95 backdrop-blur-md">
+                        <SelectContent>
                           {membershipTypes.map(type => (
                             <SelectItem key={type.value} value={type.value}>
                               {type.label} - Rs. {type.fee}/month
@@ -853,20 +1025,17 @@ const Members = () => {
                   name="feeType"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel className="text-gray-700">Fee Type</FormLabel>
-                      <Select
-                        onValueChange={field.onChange}
-                        defaultValue={field.value}
-                      >
+                      <FormLabel>Fee Type</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
                         <FormControl>
                           <div className="relative">
                             <Calendar className="absolute left-3 top-3 h-4 w-4 text-gray-500 pointer-events-none" />
-                            <SelectTrigger className="pl-10 bg-white/70 border-white/60 transition-all focus:ring-2 focus:ring-blue-500/50 focus:border-blue-400">
+                            <SelectTrigger className="pl-10">
                               <SelectValue placeholder="Select fee type" />
                             </SelectTrigger>
                           </div>
                         </FormControl>
-                        <SelectContent className="bg-white/95 backdrop-blur-md">
+                        <SelectContent>
                           {feeTypes.map(type => (
                             <SelectItem key={type.value} value={type.value}>
                               {type.label}
@@ -880,44 +1049,36 @@ const Members = () => {
                 />
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <FormField
-                  control={form.control}
-                  name="admissionFee"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-gray-700">Admission Fee (Rs)</FormLabel>
-                      <FormControl>
-                        <div className="relative">
-                          <IndianRupee className="absolute left-3 top-3 h-4 w-4 text-gray-500" />
-                          <Input 
-                            type="number" 
-                            placeholder="Enter admission fee" 
-                            className="pl-10 bg-white/70 border-white/60 transition-all focus:ring-2 focus:ring-blue-500/50 focus:border-blue-400"
-                            {...field} 
-                          />
-                        </div>
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+              <div className="grid grid-cols-2 gap-4">
+                {!feeTypes.find(f => f.value === watchFeeType)?.isDailyPass && (
+                  <FormField
+                    control={form.control}
+                    name="admissionFee"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Admission Fee (Rs)</FormLabel>
+                        <FormControl>
+                          <div className="relative">
+                            <IndianRupee className="absolute left-3 top-3 h-4 w-4 text-gray-500" />
+                            <Input type="number" placeholder="2000" className="pl-10" {...field} />
+                          </div>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                )}
 
                 <FormField
                   control={form.control}
                   name="monthlyFee"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel className="text-gray-700">Monthly Fee (Rs)</FormLabel>
+                      <FormLabel>{feeTypes.find(f => f.value === watchFeeType)?.isDailyPass ? 'Daily Fee (Rs)' : 'Monthly Fee (Rs)'}</FormLabel>
                       <FormControl>
                         <div className="relative">
                           <IndianRupee className="absolute left-3 top-3 h-4 w-4 text-gray-500" />
-                          <Input 
-                            type="number" 
-                            placeholder="Enter monthly fee" 
-                            className="pl-10 bg-white/70 border-white/60 transition-all focus:ring-2 focus:ring-blue-500/50 focus:border-blue-400"
-                            {...field} 
-                          />
+                          <Input type="number" placeholder="3000" className="pl-10" {...field} />
                         </div>
                       </FormControl>
                       <FormMessage />
@@ -926,44 +1087,42 @@ const Members = () => {
                 />
               </div>
 
-              {/* Total Fee Calculation */}
-              <div className="bg-blue-50/50 p-4 rounded-lg border border-blue-100/50">
+              <div className="bg-blue-50/50 p-4 rounded-lg">
                 <div className="flex justify-between items-center">
                   <div>
                     <h4 className="text-sm font-medium text-blue-700">Total Fee</h4>
                     <p className="text-xs text-blue-600">
-                      {watchFeeType && 
-                        `Admission Fee + ${feeTypes.find(f => f.value === watchFeeType)?.label || 'Monthly'} Fee`
-                      }
+                      {watchFeeType && (feeTypes.find(f => f.value === watchFeeType)?.isDailyPass 
+                        ? 'Daily Fee Only' 
+                        : `Admission Fee + ${feeTypes.find(f => f.value === watchFeeType)?.label || 'Monthly'} Fee`
+                      )}
                     </p>
                   </div>
                   <div className="text-xl font-bold text-blue-700">
-                    Rs. {calculateTotalFee().toLocaleString('en-US')}
+                    Rs. {calculateTotalFee().toLocaleString()}
                   </div>
                 </div>
               </div>
 
-              {/* WhatsApp Notification Toggle */}
               <FormField
                 control={form.control}
                 name="sendWhatsApp"
                 render={({ field }) => (
-                  <FormItem className="flex flex-row items-center justify-between rounded-lg border border-gray-200/50 p-3 shadow-sm bg-white/40">
+                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
                     <div className="space-y-0.5">
-                      <FormLabel className="text-gray-700 flex items-center">
+                      <FormLabel className="flex items-center">
                         <Send className="mr-2 h-4 w-4 text-green-600" />
                         Send WhatsApp Receipt
                       </FormLabel>
-                      <FormDescription className="text-xs text-gray-500">
-                        Send a payment receipt to member via WhatsApp
+                      <FormDescription className="text-xs">
+                        Send payment receipt via WhatsApp
                       </FormDescription>
                     </div>
                     <FormControl>
-                      <div className={`transition-colors duration-200 w-11 h-6 bg-${field.value ? 'green-500' : 'gray-300'} rounded-full relative cursor-pointer`}
-                        onClick={() => {
-                          form.setValue('sendWhatsApp', !field.value);
-                          setIsWhatsAppToggled(!isWhatsAppToggled);
-                        }}>
+                      <div 
+                        className={`transition-colors duration-200 w-11 h-6 bg-${field.value ? 'green-500' : 'gray-300'} rounded-full relative cursor-pointer`}
+                        onClick={() => form.setValue('sendWhatsApp', !field.value)}
+                      >
                         <div className={`transition-transform duration-200 w-5 h-5 rounded-full bg-white absolute top-0.5 ${field.value ? 'translate-x-5' : 'translate-x-0.5'}`}></div>
                       </div>
                     </FormControl>
@@ -971,25 +1130,15 @@ const Members = () => {
                 )}
               />
 
-              <DialogFooter className="mt-6">
-                <Button 
-                  variant="outline" 
-                  type="button" 
-                  className="bg-white/70 border-white/60 transition-colors hover:bg-gray-100" 
-                  onClick={() => setIsAddMemberDialogOpen(false)}
-                  disabled={isSubmitting}
-                >
+              <DialogFooter>
+                <Button variant="outline" type="button" onClick={() => setIsAddDialogOpen(false)} disabled={isSubmitting}>
                   Cancel
                 </Button>
-                <Button 
-                  type="submit"
-                  className="premium-button transition-all duration-200 hover:shadow-lg disabled:opacity-70"
-                  disabled={isSubmitting}
-                >
+                <Button type="submit" disabled={isSubmitting}>
                   {isSubmitting ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Adding to Google Sheets...
+                      Adding...
                     </>
                   ) : (
                     <>
@@ -1004,43 +1153,440 @@ const Members = () => {
         </DialogContent>
       </Dialog>
 
+      {/* Edit Member Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="glass-card sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center">
+              <Edit className="mr-2 h-5 w-5 text-blue-600" />
+              Edit Member
+            </DialogTitle>
+          </DialogHeader>
+
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onEdit)} className="space-y-4">
+              {/* Same form fields as Add Member */}
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="name"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Full Name</FormLabel>
+                      <FormControl>
+                        <div className="relative">
+                          <User className="absolute left-3 top-3 h-4 w-4 text-gray-500" />
+                          <Input placeholder="Enter full name" className="pl-10" {...field} />
+                        </div>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="phone"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Phone Number</FormLabel>
+                      <FormControl>
+                        <div className="relative">
+                          <Phone className="absolute left-3 top-3 h-4 w-4 text-gray-500" />
+                          <Input placeholder="03xxxxxxxxx" className="pl-10" {...field} />
+                        </div>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="cnic"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>CNIC Number</FormLabel>
+                      <FormControl>
+                        <div className="relative">
+                          <ShieldCheck className="absolute left-3 top-3 h-4 w-4 text-gray-500" />
+                          <Input placeholder="xxxxx-xxxxxxx-x" className="pl-10" {...field} />
+                        </div>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="address"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Address</FormLabel>
+                      <FormControl>
+                        <div className="relative">
+                          <MapPin className="absolute left-3 top-3 h-4 w-4 text-gray-500" />
+                          <Input placeholder="Enter address" className="pl-10" {...field} />
+                        </div>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="membershipType"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Membership Type</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <div className="relative">
+                            <Dumbbell className="absolute left-3 top-3 h-4 w-4 text-gray-500 pointer-events-none" />
+                            <SelectTrigger className="pl-10">
+                              <SelectValue placeholder="Select type" />
+                            </SelectTrigger>
+                          </div>
+                        </FormControl>
+                        <SelectContent>
+                          {membershipTypes.map(type => (
+                            <SelectItem key={type.value} value={type.value}>
+                              {type.label} - Rs. {type.fee}/month
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="feeType"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Fee Type</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <div className="relative">
+                            <Calendar className="absolute left-3 top-3 h-4 w-4 text-gray-500 pointer-events-none" />
+                            <SelectTrigger className="pl-10">
+                              <SelectValue placeholder="Select fee type" />
+                            </SelectTrigger>
+                          </div>
+                        </FormControl>
+                        <SelectContent>
+                          {feeTypes.map(type => (
+                            <SelectItem key={type.value} value={type.value}>
+                              {type.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <FormField
+                control={form.control}
+                name="sendWhatsApp"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
+                    <div className="space-y-0.5">
+                      <FormLabel className="flex items-center">
+                        <Send className="mr-2 h-4 w-4 text-green-600" />
+                        Send WhatsApp Update
+                      </FormLabel>
+                    </div>
+                    <FormControl>
+                      <div 
+                        className={`transition-colors duration-200 w-11 h-6 bg-${field.value ? 'green-500' : 'gray-300'} rounded-full relative cursor-pointer`}
+                        onClick={() => form.setValue('sendWhatsApp', !field.value)}
+                      >
+                        <div className={`transition-transform duration-200 w-5 h-5 rounded-full bg-white absolute top-0.5 ${field.value ? 'translate-x-5' : 'translate-x-0.5'}`}></div>
+                      </div>
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+
+              <DialogFooter>
+                <Button variant="outline" type="button" onClick={() => setIsEditDialogOpen(false)} disabled={isSubmitting}>
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={isSubmitting}>
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Updating...
+                    </>
+                  ) : (
+                    <>
+                      <Check className="mr-2 h-4 w-4" />
+                      Update Member
+                    </>
+                  )}
+                </Button>
+              </DialogFooter>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Renew Membership Dialog */}
+      <Dialog open={isRenewDialogOpen} onOpenChange={setIsRenewDialogOpen}>
+        <DialogContent className="glass-card sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center">
+              <RotateCcw className="mr-2 h-5 w-5 text-green-600" />
+              Renew Membership
+            </DialogTitle>
+            <DialogDescription>
+              Renew membership for {selectedMember?.name}
+            </DialogDescription>
+          </DialogHeader>
+
+          <Form {...renewForm}>
+            <form onSubmit={renewForm.handleSubmit(onRenew)} className="space-y-4">
+              <FormField
+                control={renewForm.control}
+                name="startDate"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Start Date</FormLabel>
+                    <FormControl>
+                      <div className="relative">
+                        <Calendar className="absolute left-3 top-3 h-4 w-4 text-gray-500" />
+                        <Input type="date" className="pl-10" {...field} />
+                      </div>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={renewForm.control}
+                name="feeType"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Fee Type</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select fee type" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {feeTypes.map(type => (
+                          <SelectItem key={type.value} value={type.value}>
+                            {type.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={renewForm.control}
+                name="sendWhatsApp"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
+                    <div className="space-y-0.5">
+                      <FormLabel className="flex items-center">
+                        <Send className="mr-2 h-4 w-4 text-green-600" />
+                        Send WhatsApp Receipt
+                      </FormLabel>
+                    </div>
+                    <FormControl>
+                      <div 
+                        className={`transition-colors duration-200 w-11 h-6 bg-${field.value ? 'green-500' : 'gray-300'} rounded-full relative cursor-pointer`}
+                        onClick={() => renewForm.setValue('sendWhatsApp', !field.value)}
+                      >
+                        <div className={`transition-transform duration-200 w-5 h-5 rounded-full bg-white absolute top-0.5 ${field.value ? 'translate-x-5' : 'translate-x-0.5'}`}></div>
+                      </div>
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+
+              <DialogFooter>
+                <Button variant="outline" type="button" onClick={() => setIsRenewDialogOpen(false)} disabled={isSubmitting}>
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={isSubmitting}>
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Renewing...
+                    </>
+                  ) : (
+                    <>
+                      <RotateCcw className="mr-2 h-4 w-4" />
+                      Renew
+                    </>
+                  )}
+                </Button>
+              </DialogFooter>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
+
+      {/* View Member Dialog */}
+      <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
+        <DialogContent className="glass-card sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center">
+              <Eye className="mr-2 h-5 w-5 text-blue-600" />
+              Member Details
+            </DialogTitle>
+          </DialogHeader>
+
+          {selectedMember && (
+            <div className="space-y-4">
+              <div className="flex items-center space-x-4">
+                <div className="w-16 h-16 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-2xl">
+                  {selectedMember.name.charAt(0)}
+                </div>
+                <div>
+                  <h3 className="text-xl font-semibold">{selectedMember.name}</h3>
+                  <p className="text-gray-600">{selectedMember.phone}</p>
+                  {getStatusBadge(selectedMember.status)}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-sm text-gray-500">CNIC</p>
+                  <p className="font-medium">{selectedMember.cnic}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500">Address</p>
+                  <p className="font-medium">{selectedMember.address}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500">Membership</p>
+                  <p className="font-medium">{selectedMember.membershipType}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500">Fee Type</p>
+                  <p className="font-medium">{selectedMember.feeType}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500">Joining Date</p>
+                  <p className="font-medium">{formatDate(selectedMember.joiningDate)}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500">Expiry Date</p>
+                  <p className="font-medium">{formatDate(selectedMember.expiryDate)}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500">Fee Paid</p>
+                  <p className="font-medium">Rs. {selectedMember.fee.toLocaleString()}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500">Member ID</p>
+                  <p className="font-medium">{selectedMember.id}</p>
+                </div>
+              </div>
+
+              <div className="flex gap-2 mt-6">
+                <Button className="flex-1" onClick={() => {
+                  setIsViewDialogOpen(false);
+                  handleEdit(selectedMember);
+                }}>
+                  <Edit className="mr-2 h-4 w-4" />
+                  Edit
+                </Button>
+                <Button variant="outline" className="flex-1" onClick={() => {
+                  setIsViewDialogOpen(false);
+                  handleRenew(selectedMember);
+                }}>
+                  <RotateCcw className="mr-2 h-4 w-4" />
+                  Renew
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <DialogContent className="glass-card sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center text-red-600">
+              <AlertCircle className="mr-2 h-5 w-5" />
+              Delete Member
+            </DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete {selectedMember?.name}? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)} disabled={isSubmitting}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={onDelete} disabled={isSubmitting}>
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                <>
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Delete
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Success Dialog */}
       <Dialog open={isSuccessDialogOpen} onOpenChange={setIsSuccessDialogOpen}>
-        <DialogContent className="glass-card border-white/40 sm:max-w-md">
+        <DialogContent className="glass-card sm:max-w-md">
           <div className="flex flex-col items-center justify-center py-4">
-            <div className="h-14 w-14 bg-green-100 rounded-full flex items-center justify-center mb-4 animate-in zoom-in-50 duration-300">
+            <div className="h-14 w-14 bg-green-100 rounded-full flex items-center justify-center mb-4">
               <Check className="h-8 w-8 text-green-600" />
             </div>
-            <DialogTitle className="text-xl font-semibold text-gray-800 text-center">
-              Member Added Successfully!
+            <DialogTitle className="text-xl font-semibold text-center">
+              Success!
             </DialogTitle>
-            <DialogDescription className="text-gray-600 text-center mt-2">
-              The member has been added to your Google Sheets database and can now access gym facilities.
-              {isWhatsAppToggled && (
-                <div className="flex items-center justify-center mt-2 text-green-600">
-                  <Send className="h-4 w-4 mr-1" />
-                  WhatsApp notification has been sent
-                </div>
-              )}
+            <DialogDescription className="text-center mt-2">
+              {successMessage}
             </DialogDescription>
             
-            <div className="mt-6 w-full flex flex-col sm:flex-row gap-3">
+            <div className="mt-6 w-full flex gap-3">
               <Button
                 variant="outline"
-                className="flex-1 bg-white/70 border-white/60 transition-colors hover:bg-gray-100"
+                className="flex-1"
                 onClick={() => {
                   setIsSuccessDialogOpen(false);
-                  setIsAddMemberDialogOpen(true);
+                  setIsAddDialogOpen(true);
                 }}
               >
                 <UserPlus className="mr-2 h-4 w-4" />
                 Add Another
               </Button>
               <Button
-                className="flex-1 premium-button transition-all duration-200"
-                onClick={() => {
-                  setIsSuccessDialogOpen(false);
-                }}
+                className="flex-1"
+                onClick={() => setIsSuccessDialogOpen(false)}
               >
                 <Check className="mr-2 h-4 w-4" />
                 Done
