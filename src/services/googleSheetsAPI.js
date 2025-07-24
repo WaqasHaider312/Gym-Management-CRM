@@ -1,5 +1,5 @@
 // Google Sheets API Service - Complete JSONP Implementation
-const GOOGLE_SHEETS_URL = 'https://script.google.com/macros/s/AKfycbx1v4cAR4KwrVZqz5YcDa84_vM6_xH0p08ry4KqEThFa7iwZHYl-d8X3PfOaKdsOA-v/exec';
+const GOOGLE_SHEETS_URL = 'https://script.google.com/macros/s/AKfycbweHHm-ZS39VAH-uKOVVPBdjyES0rDhg4kx-paMwb2UjorpxCS7mOt4KArPlEYV8AeZ/exec';
 
 // ========== UNIFIED JSONP UTILITY FUNCTION ==========
 const makeJSONPRequest = (url) => {
