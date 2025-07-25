@@ -76,7 +76,7 @@ import { membersAPI } from '@/services/googleSheetsAPI';
 
 // Member interface
 interface Member {
-  id: string;
+  id: number;
   name: string;
   phone: string;
   cnic: string;
@@ -120,10 +120,11 @@ const feeTypes = [
 ];
 
 const membershipTypes = [
-  { value: 'strength', label: 'Strength', fee: 3000 },
+  { value: 'strength', label: 'Strength', fee: 5000 },
   { value: 'cardio', label: 'Cardio', fee: 2500 },
-  { value: 'cardioStrength', label: 'Cardio + Strength', fee: 4000 },
-  { value: 'personalTraining', label: 'Personal Training', fee: 6000 },
+  { value: 'cardioStrength', label: 'Cardio + Strength', fee: 7500 },
+  { value: 'personalTraining', label: 'Personal Training', fee: 15000 },
+  { value: 'dailypass', label: 'Daily Pass', fee: 500 },
 ];
 
 const Members = () => {

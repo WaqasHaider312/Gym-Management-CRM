@@ -69,7 +69,7 @@ import { authAPI, dashboardAPI } from '@/services/googleSheetsAPI';
 import { useAuth } from './AuthContext';
 
 interface User {
-  id: string;
+  id: number;
   username: string;
   role: 'admin' | 'partner' | 'employee';
   name: string;
