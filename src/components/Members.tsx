@@ -76,7 +76,7 @@ import { membersAPI } from '@/services/googleSheetsAPI';
 
 // Member interface
 interface Member {
-  id: number;
+  id: string;
   name: string;
   phone: string;
   cnic: string;
