@@ -94,7 +94,7 @@ interface Member {
 // Form schemas
 const memberFormSchema = z.object({
   name: z.string().min(3, "Name must be at least 3 characters"),
-  phone: z.string().regex(/^03\d{9}$/, "Phone must be 11 digits starting with 03"),
+  phone: z.string().regex(/^923\d{9}$/, "Phone must be 12 digits starting with 923"),
   cnic: z.string().min(13, "Please enter a valid CNIC number"),
   address: z.string().min(5, "Address must be at least 5 characters"),
   membershipType: z.string({ required_error: "Please select a membership type" }),

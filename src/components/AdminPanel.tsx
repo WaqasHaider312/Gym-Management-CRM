@@ -88,12 +88,12 @@ interface Notification {
   type: 'login' | 'member' | 'transaction' | 'expense' | 'user' | 'system';
 }
 
-// Pakistan phone validation: 03xxxxxxxxx (11 digits)
+// Pakistan phone validation: 923xxxxxxxxx (12 digits)
 const userFormSchema = z.object({
   username: z.string().min(3, { message: "Username must be at least 3 characters" }),
   password: z.string().min(6, { message: "Password must be at least 6 characters" }),
   name: z.string().min(2, { message: "Name must be at least 2 characters" }),
-  phone: z.string().regex(/^03\d{9}$/, { message: "Phone must be Pakistani format: 03xxxxxxxxx (11 digits)" }).optional().or(z.literal("")),
+  phone: z.string().regex(/^923\d{9}$/, { message: "Phone must be Pakistani format: 923xxxxxxxxx (12 digits)" }).optional().or(z.literal("")),
   role: z.enum(['admin', 'partner', 'employee'], {
     required_error: "Please select a role",
   }),
@@ -987,7 +987,7 @@ const AdminPanel = () => {
                     <FormLabel className="text-gray-700">Phone (Optional)</FormLabel>
                     <FormControl>
                       <Input 
-                        placeholder="03xxxxxxxxx (11 digits)" 
+                        placeholder="923xxxxxxxxx (12 digits)" 
                         className="bg-white/70 border-white/60"
                         {...field} 
                       />
@@ -1144,7 +1144,7 @@ const AdminPanel = () => {
                     <FormLabel className="text-gray-700">Phone (Optional)</FormLabel>
                     <FormControl>
                       <Input 
-                        placeholder="03xxxxxxxxx (11 digits)" 
+                        placeholder="923xxxxxxxxx (12 digits)" 
                         className="bg-white/70 border-white/60"
                         {...field} 
                       />
