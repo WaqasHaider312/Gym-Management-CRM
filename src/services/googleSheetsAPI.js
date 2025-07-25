@@ -48,6 +48,16 @@ const makeJSONPRequest = (url) => {
   });
 };
 
+// Get current user info from localStorage
+const getCurrentUser = () => {
+  try {
+    const user = localStorage.getItem('user');
+    return user ? JSON.parse(user) : { id: 'system', name: 'System' };
+  } catch {
+    return { id: 'system', name: 'System' };
+  }
+};
+
 // ========== MEMBERS API ==========
 export const membersAPI = {
   // Get all members
@@ -70,19 +80,21 @@ export const membersAPI = {
   // Add new member
   add: async (memberData) => {
     try {
+      const user = getCurrentUser();
       const params = new URLSearchParams();
       params.append('action', 'addMember');
       params.append('name', memberData.name || '');
       params.append('phone', memberData.phone || '');
-      params.append('email', memberData.email || '');
+      params.append('cnic', memberData.cnic || '');
+      params.append('address', memberData.address || '');
       params.append('membershipType', memberData.membershipType || '');
-      params.append('membershipDuration', memberData.membershipDuration || '');
+      params.append('feeType', memberData.feeType || '');
       params.append('joiningDate', memberData.joiningDate || '');
       params.append('expiryDate', memberData.expiryDate || '');
-      params.append('membershipStatus', memberData.membershipStatus || 'Active');
-      params.append('emergencyContact', memberData.emergencyContact || '');
-      params.append('address', memberData.address || '');
-      params.append('notes', memberData.notes || '');
+      params.append('fee', memberData.fee || '0');
+      params.append('status', memberData.status || 'active');
+      params.append('userId', user.id);
+      params.append('userName', user.name);
 
       const url = `${GOOGLE_SHEETS_URL}?${params.toString()}`;
       console.log('Adding member to:', url);
@@ -92,6 +104,62 @@ export const membersAPI = {
       return {
         success: false,
         error: 'Failed to add member',
+        message: error.message
+      };
+    }
+  },
+
+  // Update member
+  update: async (memberId, memberData) => {
+    try {
+      const user = getCurrentUser();
+      const params = new URLSearchParams();
+      params.append('action', 'updateMember');
+      params.append('memberId', memberId);
+      params.append('name', memberData.name || '');
+      params.append('phone', memberData.phone || '');
+      params.append('cnic', memberData.cnic || '');
+      params.append('address', memberData.address || '');
+      params.append('membershipType', memberData.membershipType || '');
+      params.append('feeType', memberData.feeType || '');
+      params.append('joiningDate', memberData.joiningDate || '');
+      params.append('expiryDate', memberData.expiryDate || '');
+      params.append('fee', memberData.fee || '0');
+      params.append('status', memberData.status || 'active');
+      params.append('userId', user.id);
+      params.append('userName', user.name);
+
+      const url = `${GOOGLE_SHEETS_URL}?${params.toString()}`;
+      console.log('Updating member:', url);
+      return await makeJSONPRequest(url);
+    } catch (error) {
+      console.error('Failed to update member:', error);
+      return {
+        success: false,
+        error: 'Failed to update member',
+        message: error.message
+      };
+    }
+  },
+
+  // Delete member
+  delete: async (memberId) => {
+    try {
+      const user = getCurrentUser();
+      const params = new URLSearchParams();
+      params.append('action', 'deleteMember');
+      params.append('memberId', memberId);
+      params.append('userId', user.id);
+      params.append('userName', user.name);
+
+      const url = `${GOOGLE_SHEETS_URL}?${params.toString()}`;
+      console.log('Deleting member:', url);
+      return await makeJSONPRequest(url);
+    } catch (error) {
+      console.error('Failed to delete member:', error);
+      return {
+        success: false,
+        error: 'Failed to delete member',
         message: error.message
       };
     }
@@ -120,6 +188,7 @@ export const transactionsAPI = {
   // Add new transaction
   add: async (transactionData) => {
     try {
+      const user = getCurrentUser();
       const params = new URLSearchParams();
       params.append('action', 'addTransaction');
       params.append('memberName', transactionData.memberName || '');
@@ -130,6 +199,8 @@ export const transactionsAPI = {
       params.append('date', transactionData.date || new Date().toISOString().split('T')[0]);
       params.append('status', transactionData.status || 'completed');
       params.append('notes', transactionData.notes || '');
+      params.append('userId', user.id);
+      params.append('userName', user.name);
 
       const url = `${GOOGLE_SHEETS_URL}?${params.toString()}`;
       console.log('Adding transaction to:', url);
@@ -167,14 +238,17 @@ export const expensesAPI = {
   // Add new expense
   add: async (expenseData) => {
     try {
+      const user = getCurrentUser();
       const params = new URLSearchParams();
       params.append('action', 'addExpense');
       params.append('description', expenseData.description || '');
       params.append('amount', expenseData.amount || '0');
       params.append('category', expenseData.category || 'Other');
       params.append('date', expenseData.date || new Date().toISOString().split('T')[0]);
-      params.append('addedBy', expenseData.addedBy || 'Admin');
+      params.append('addedBy', expenseData.addedBy || user.name);
       params.append('notes', expenseData.notes || '');
+      params.append('userId', user.id);
+      params.append('userName', user.name);
 
       const url = `${GOOGLE_SHEETS_URL}?${params.toString()}`;
       console.log('Adding expense to:', url);
@@ -233,6 +307,7 @@ export const authAPI = {
   // Add new user (admin only)
   add: async (userData) => {
     try {
+      const user = getCurrentUser();
       const params = new URLSearchParams();
       params.append('action', 'addUser');
       params.append('username', userData.username);
@@ -240,6 +315,8 @@ export const authAPI = {
       params.append('role', userData.role);
       params.append('name', userData.name);
       params.append('phone', userData.phone || '');
+      params.append('requestUserId', user.id);
+      params.append('requestUserName', user.name);
 
       const url = `${GOOGLE_SHEETS_URL}?${params.toString()}`;
       console.log('Adding user to:', url);
@@ -250,6 +327,102 @@ export const authAPI = {
         success: false, 
         error: 'Failed to add user',
         message: error.message 
+      };
+    }
+  },
+
+  // Update user (admin only)
+  update: async (userId, userData) => {
+    try {
+      const user = getCurrentUser();
+      const params = new URLSearchParams();
+      params.append('action', 'updateUser');
+      params.append('userId', userId);
+      params.append('username', userData.username || '');
+      params.append('password', userData.password || '');
+      params.append('role', userData.role || '');
+      params.append('name', userData.name || '');
+      params.append('phone', userData.phone || '');
+      params.append('requestUserId', user.id);
+      params.append('requestUserName', user.name);
+
+      const url = `${GOOGLE_SHEETS_URL}?${params.toString()}`;
+      console.log('Updating user:', url);
+      return await makeJSONPRequest(url);
+    } catch (error) {
+      console.error('Error updating user:', error);
+      return { 
+        success: false, 
+        error: 'Failed to update user',
+        message: error.message 
+      };
+    }
+  },
+
+  // Delete user (admin only)
+  delete: async (userId) => {
+    try {
+      const user = getCurrentUser();
+      const params = new URLSearchParams();
+      params.append('action', 'deleteUser');
+      params.append('userId', userId);
+      params.append('requestUserId', user.id);
+      params.append('requestUserName', user.name);
+
+      const url = `${GOOGLE_SHEETS_URL}?${params.toString()}`;
+      console.log('Deleting user:', url);
+      return await makeJSONPRequest(url);
+    } catch (error) {
+      console.error('Error deleting user:', error);
+      return { 
+        success: false, 
+        error: 'Failed to delete user',
+        message: error.message 
+      };
+    }
+  }
+};
+
+// ========== ACTIVITY LOGS API ==========
+export const activityLogsAPI = {
+  // Get all activity logs (admin only)
+  getAll: async () => {
+    try {
+      const url = `${GOOGLE_SHEETS_URL}?action=getActivityLogs`;
+      console.log('Fetching activity logs from:', url);
+      return await makeJSONPRequest(url);
+    } catch (error) {
+      console.error('Failed to fetch activity logs:', error);
+      return {
+        success: false,
+        error: 'Failed to fetch activity logs',
+        logs: [],
+        message: error.message
+      };
+    }
+  },
+
+  // Log activity (internal use)
+  log: async (action, details, type = 'system') => {
+    try {
+      const user = getCurrentUser();
+      const params = new URLSearchParams();
+      params.append('action', 'logActivity');
+      params.append('action', action);
+      params.append('userId', user.id);
+      params.append('userName', user.name);
+      params.append('details', details);
+      params.append('type', type);
+
+      const url = `${GOOGLE_SHEETS_URL}?${params.toString()}`;
+      console.log('Logging activity:', url);
+      return await makeJSONPRequest(url);
+    } catch (error) {
+      console.error('Failed to log activity:', error);
+      return {
+        success: false,
+        error: 'Failed to log activity',
+        message: error.message
       };
     }
   }
@@ -290,7 +463,7 @@ export const dashboardAPI = {
 // Test API connection
 export const testAPI = async () => {
   try {
-    const url = `${GOOGLE_SHEETS_URL}?action=test`;
+    const url = `${GOOGLE_SHEETS_URL}?action=healthCheck`;
     return await makeJSONPRequest(url);
   } catch (error) {
     console.error('API test failed:', error);
@@ -334,12 +507,20 @@ export const debugAPI = async () => {
     const statsResult = await dashboardAPI.getStats();
     console.log('5. Dashboard Stats:', statsResult);
     
+    const usersResult = await authAPI.getUsers();
+    console.log('6. Get Users:', usersResult);
+    
+    const logsResult = await activityLogsAPI.getAll();
+    console.log('7. Activity Logs:', logsResult);
+    
     return {
       test: testResult,
       members: membersResult,
       transactions: transactionsResult,
       expenses: expensesResult,
-      stats: statsResult
+      stats: statsResult,
+      users: usersResult,
+      logs: logsResult
     };
   } catch (error) {
     console.error('Debug API failed:', error);
