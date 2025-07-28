@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
 import { 
   Select,
   SelectContent,
@@ -9,6 +10,22 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import { 
   BarChart3, 
   TrendingUp, 
@@ -17,15 +34,17 @@ import {
   Users,
   IndianRupee,
   Receipt,
-  PieChart,
   Loader2,
   RefreshCw,
   AlertCircle,
-  TrendingDown
+  Eye,
+  FileText,
+  CalendarIcon
 } from 'lucide-react';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart as RechartsPieChart, Pie, Cell } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart as RechartsPieChart, Pie, Cell } from 'recharts';
 import { membersAPI, transactionsAPI, expensesAPI, dashboardAPI } from '@/services/googleSheetsAPI';
 
+// ============ INTERFACES ============
 interface ReportData {
   members: any[];
   transactions: any[];
@@ -33,6 +52,163 @@ interface ReportData {
   dashboardStats: any;
 }
 
+interface DateRange {
+  from: Date;
+  to: Date;
+}
+
+// ============ UTILITY FUNCTIONS ============
+const getDateRangeFromPeriod = (period: string): DateRange => {
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  
+  switch (period) {
+    case 'today':
+      return { from: today, to: today };
+    case 'last_7_days':
+      const last7Days = new Date(today);
+      last7Days.setDate(today.getDate() - 6);
+      return { from: last7Days, to: today };
+    case 'last_30_days':
+      const last30Days = new Date(today);
+      last30Days.setDate(today.getDate() - 29);
+      return { from: last30Days, to: today };
+    case 'current_month':
+      return { 
+        from: new Date(now.getFullYear(), now.getMonth(), 1), 
+        to: new Date(now.getFullYear(), now.getMonth() + 1, 0) 
+      };
+    case 'last_month':
+      const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0);
+      return { from: lastMonth, to: lastMonthEnd };
+    case 'last_3_months':
+      const last3Months = new Date(now.getFullYear(), now.getMonth() - 2, 1);
+      return { from: last3Months, to: today };
+    case 'year_to_date':
+      return { 
+        from: new Date(now.getFullYear(), 0, 1), 
+        to: today 
+      };
+    default:
+      return { 
+        from: new Date(now.getFullYear(), now.getMonth(), 1), 
+        to: new Date(now.getFullYear(), now.getMonth() + 1, 0) 
+      };
+  }
+};
+
+const filterDataByDateRange = (data: any[], dateRange: DateRange, dateField: string = 'date') => {
+  return data.filter(item => {
+    const itemDate = new Date(item[dateField]);
+    return itemDate >= dateRange.from && itemDate <= dateRange.to;
+  });
+};
+
+const exportToCSV = (data: any[], filename: string) => {
+  if (data.length === 0) return;
+  
+  const headers = Object.keys(data[0]);
+  const csvContent = [
+    headers.join(','),
+    ...data.map(row => headers.map(header => `"${row[header] || ''}"`).join(','))
+  ].join('\n');
+  
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const link = document.createElement('a');
+  const url = URL.createObjectURL(blob);
+  link.setAttribute('href', url);
+  link.setAttribute('download', `${filename}.csv`);
+  link.style.visibility = 'hidden';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+};
+
+// ============ DETAIL MODAL COMPONENT ============
+const ReportDetailModal: React.FC<{
+  title: string;
+  data: any[];
+  isOpen: boolean;
+  onClose: () => void;
+}> = ({ title, data, isOpen, onClose }) => {
+  const handleExport = () => {
+    if (data.length > 0) {
+      exportToCSV(data, `${title.toLowerCase().replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}`);
+    }
+  };
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="glass-card border-white/40 max-w-4xl max-h-[80vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="text-xl font-semibold text-gray-800 flex items-center">
+            <FileText className="mr-2 h-5 w-5 text-purple-600" />
+            {title} - Detailed Report
+          </DialogTitle>
+          <DialogDescription className="text-gray-600">
+            Complete breakdown showing {data.length} records
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4">
+          {data.length === 0 ? (
+            <div className="text-center py-8">
+              <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+              <p className="text-gray-600">No data available for this period</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    {Object.keys(data[0]).map((header) => (
+                      <TableHead key={header} className="text-gray-600 capitalize">
+                        {header.replace(/_/g, ' ')}
+                      </TableHead>
+                    ))}
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {data.slice(0, 100).map((row, index) => (
+                    <TableRow key={index}>
+                      {Object.entries(row).map(([key, value]) => (
+                        <TableCell key={key} className="text-gray-700">
+                          {key === 'amount' || key === 'fee' || key === 'revenue'
+                            ? `Rs.${Number(value || 0).toLocaleString()}`
+                            : key === 'date' || key.toLowerCase().includes('date')
+                            ? new Date(String(value || '')).toLocaleDateString()
+                            : String(value || 'N/A')}
+                        </TableCell>
+                      ))}
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+              {data.length > 100 && (
+                <div className="text-center mt-4 text-sm text-gray-600">
+                  Showing first 100 records of {data.length} total records
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>
+            Close
+          </Button>
+          <Button onClick={handleExport} className="premium-button">
+            <Download className="mr-2 h-4 w-4" />
+            Export to CSV
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
+// ============ MAIN REPORTS COMPONENT ============
 const Reports = () => {
   // State management
   const [reportData, setReportData] = useState<ReportData>({
@@ -45,6 +221,18 @@ const Reports = () => {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedPeriod, setSelectedPeriod] = useState('current_month');
+  const [customDateRange, setCustomDateRange] = useState<DateRange | null>(null);
+  const [showCustomDatePicker, setShowCustomDatePicker] = useState(false);
+  
+  // Modal states
+  const [detailModalOpen, setDetailModalOpen] = useState(false);
+  const [modalTitle, setModalTitle] = useState('');
+  const [modalData, setModalData] = useState<any[]>([]);
+
+  // Get current date range
+  const getCurrentDateRange = (): DateRange => {
+    return customDateRange || getDateRangeFromPeriod(selectedPeriod);
+  };
 
   // Fetch all data for reports
   const fetchReportData = async (showRefreshLoader = false) => {
@@ -58,7 +246,6 @@ const Reports = () => {
 
       console.log('Fetching report data from Google Sheets...');
       
-      // Fetch all data in parallel
       const [membersRes, transactionsRes, expensesRes, dashboardRes] = await Promise.all([
         membersAPI.getAll(),
         transactionsAPI.getAll(),
@@ -69,8 +256,8 @@ const Reports = () => {
       if (membersRes.success && transactionsRes.success && expensesRes.success && dashboardRes.success) {
         setReportData({
           members: membersRes.members || [],
-          transactions: transactionsRes.transactions || [],
-          expenses: expensesRes.expenses || [],
+          transactions: transactionsRes.transactions?.filter((t: any) => !t.isDeleted) || [],
+          expenses: expensesRes.expenses?.filter((e: any) => !e.isDeleted) || [],
           dashboardStats: dashboardRes.stats || {}
         });
         console.log('Report data fetched successfully');
@@ -91,33 +278,28 @@ const Reports = () => {
     fetchReportData();
   }, []);
 
-  // Calculate analytics from real data
+  // Calculate analytics from filtered data
   const calculateAnalytics = () => {
-    const { members, transactions, expenses, dashboardStats } = reportData;
+    const { members, transactions, expenses } = reportData;
+    const dateRange = getCurrentDateRange();
     
-    // Current month data
-    const currentMonth = new Date().getMonth();
-    const currentYear = new Date().getFullYear();
+    // Helper function to safely convert to number
+    const toNumber = (value: any): number => {
+      if (typeof value === 'number') return value;
+      if (typeof value === 'string') return parseFloat(value) || 0;
+      return 0;
+    };
     
-    const thisMonthMembers = members.filter(m => {
-      const joinDate = new Date(m.joiningDate);
-      return joinDate.getMonth() === currentMonth && joinDate.getFullYear() === currentYear;
-    });
+    // Filter data by selected date range
+    const filteredTransactions = filterDataByDateRange(transactions, dateRange);
+    const filteredExpenses = filterDataByDateRange(expenses, dateRange);
+    const filteredMembers = filterDataByDateRange(members, dateRange, 'joiningDate');
     
-    const thisMonthTransactions = transactions.filter(t => {
-      const transDate = new Date(t.date);
-      return transDate.getMonth() === currentMonth && transDate.getFullYear() === currentYear;
-    });
-    
-    const thisMonthExpenses = expenses.filter(e => {
-      const expDate = new Date(e.date);
-      return expDate.getMonth() === currentMonth && expDate.getFullYear() === currentYear;
-    });
-
     // Revenue by transaction type
-    const revenueByType = transactions.reduce((acc, t) => {
+    const revenueByType = filteredTransactions.reduce((acc, t) => {
       const type = t.type || 'other';
-      acc[type] = (acc[type] || 0) + (t.amount ? parseFloat(t.amount.toString()) : 0);
+      const amount = toNumber(t.amount);
+      acc[type] = (acc[type] || 0) + amount;
       return acc;
     }, {} as Record<string, number>);
 
@@ -128,16 +310,20 @@ const Reports = () => {
       date.setMonth(date.getMonth() - i);
       const monthYear = `${date.toLocaleString('default', { month: 'short' })} ${date.getFullYear()}`;
       
+      const monthStart = new Date(date.getFullYear(), date.getMonth(), 1);
+      const monthEnd = new Date(date.getFullYear(), date.getMonth() + 1, 0);
+      
       const monthMembers = members.filter(m => {
         const joinDate = new Date(m.joiningDate);
-        return joinDate.getMonth() === date.getMonth() && joinDate.getFullYear() === date.getFullYear();
+        return joinDate >= monthStart && joinDate <= monthEnd;
       }).length;
       
       const monthRevenue = transactions.filter(t => {
         const transDate = new Date(t.date);
-        return transDate.getMonth() === date.getMonth() && transDate.getFullYear() === date.getFullYear();
-      }).reduce((sum, t) => sum + (t.amount ? parseFloat(t.amount.toString()) : 0), 0);
-
+        return transDate >= monthStart && transDate <= monthEnd;
+      }).reduce((sum, t) => {
+        return sum + toNumber(t.amount);
+      }, 0);
 
       monthlyTrend.push({
         month: monthYear,
@@ -146,28 +332,25 @@ const Reports = () => {
       });
     }
 
-    // Calculate metrics
-    const avgRevenuePerMember = dashboardStats.totalMembers > 0 
-      ? Math.round(dashboardStats.totalRevenue / dashboardStats.totalMembers) 
-      : 0;
+    // Calculate totals for the selected period
+    const periodRevenue = filteredTransactions.reduce((sum, t) => {
+      return sum + toNumber(t.amount);
+    }, 0);
     
-    const memberRetentionRate = members.length > 0 
-      ? Math.round((dashboardStats.activeMembers / dashboardStats.totalMembers) * 100) 
-      : 0;
-
-    const monthlyGrowthRate = thisMonthMembers.length > 0 
-      ? Math.round((thisMonthMembers.length / Math.max(dashboardStats.totalMembers - thisMonthMembers.length, 1)) * 100) 
-      : 0;
-
+    const periodExpenses = filteredExpenses.reduce((sum, e) => {
+      return sum + toNumber(e.amount);
+    }, 0);
+    
     return {
-      thisMonthMembers: thisMonthMembers.length,
-      thisMonthRevenue: thisMonthTransactions.reduce((sum, t) => sum + (t.amount ? parseFloat(t.amount) : 0), 0),
-      thisMonthExpenses: thisMonthExpenses.reduce((sum, e) => sum + (e.amount ? parseFloat(e.amount) : 0), 0),
+      periodMembers: filteredMembers.length,
+      periodRevenue,
+      periodExpenses,
+      periodProfit: periodRevenue - periodExpenses,
       revenueByType,
       monthlyTrend,
-      avgRevenuePerMember,
-      memberRetentionRate,
-      monthlyGrowthRate
+      filteredTransactions,
+      filteredExpenses,
+      filteredMembers
     };
   };
 
@@ -183,62 +366,133 @@ const Reports = () => {
     color: COLORS[index % COLORS.length]
   }));
 
+  // Handle detail view
+  const handleViewDetails = (reportType: string) => {
+    // Helper function to safely convert to number
+    const toNumber = (value: any): number => {
+      if (typeof value === 'number') return value;
+      if (typeof value === 'string') return parseFloat(value) || 0;
+      return 0;
+    };
+
+    switch (reportType) {
+      case 'revenue':
+        setModalTitle('Revenue Details');
+        setModalData(analytics.filteredTransactions.map(t => ({
+          date: t.date,
+          member_name: t.memberName,
+          type: t.type,
+          amount: toNumber(t.amount),
+          payment_method: t.paymentMethod,
+          status: t.status
+        })));
+        break;
+      case 'members':
+        setModalTitle('Member Details');
+        setModalData(analytics.filteredMembers.map(m => ({
+          name: m.name,
+          phone: m.phone,
+          membership_type: m.membershipType,
+          joining_date: m.joiningDate,
+          status: m.status,
+          fee: toNumber(m.fee)
+        })));
+        break;
+      case 'expenses':
+        setModalTitle('Expense Details');
+        setModalData(analytics.filteredExpenses.map(e => ({
+          description: e.description,
+          amount: toNumber(e.amount),
+          category: e.category,
+          date: e.date,
+          added_by: e.addedBy
+        })));
+        break;
+      case 'profit':
+        const profitData = [
+          ...analytics.filteredTransactions.map(t => ({
+            date: t.date,
+            type: 'Revenue',
+            description: `${t.type} - ${t.memberName}`,
+            amount: toNumber(t.amount)
+          })),
+          ...analytics.filteredExpenses.map(e => ({
+            date: e.date,
+            type: 'Expense',
+            description: e.description,
+            amount: -toNumber(e.amount)
+          }))
+        ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        
+        setModalTitle('Profit Analysis');
+        setModalData(profitData);
+        break;
+    }
+    setDetailModalOpen(true);
+  };
+
+  // Handle export all data
+  const handleExportAll = () => {
+    const timestamp = new Date().toISOString().split('T')[0];
+    
+    exportToCSV(analytics.filteredTransactions, `transactions_${timestamp}`);
+    exportToCSV(analytics.filteredExpenses, `expenses_${timestamp}`);
+    exportToCSV(analytics.filteredMembers, `members_${timestamp}`);
+    
+    const summaryData = [{
+      period: `${getCurrentDateRange().from.toISOString().split('T')[0]} to ${getCurrentDateRange().to.toISOString().split('T')[0]}`,
+      total_revenue: analytics.periodRevenue,
+      total_expenses: analytics.periodExpenses,
+      net_profit: analytics.periodProfit,
+      new_members: analytics.periodMembers,
+      total_transactions: analytics.filteredTransactions.length
+    }];
+    
+    exportToCSV(summaryData, `summary_report_${timestamp}`);
+  };
+
+  // Report cards data
   const reportCards = [
     {
-      title: 'Monthly Revenue Report',
-      description: 'Current month income from all sources',
-      type: 'Revenue',
-      period: new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
-      value: `Rs.${analytics.thisMonthRevenue.toLocaleString()}`,
-      change: analytics.thisMonthRevenue > reportData.dashboardStats.totalRevenue * 0.8 ? '+15%' : '-5%',
+      title: 'Revenue Report',
+      description: 'Total income for selected period',
+      value: `Rs.${analytics.periodRevenue.toLocaleString()}`,
+      change: '+15%',
       icon: IndianRupee,
       color: 'text-green-600',
-      bgColor: 'bg-green-500/10'
+      bgColor: 'bg-green-500/10',
+      onViewDetails: () => handleViewDetails('revenue')
     },
     {
       title: 'Member Analytics',
-      description: 'New member acquisitions this month',
-      type: 'Members',
-      period: new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
-      value: analytics.thisMonthMembers.toString(),
-      change: `+${analytics.monthlyGrowthRate}%`,
+      description: 'New member acquisitions',
+      value: analytics.periodMembers.toString(),
+      change: '+12%',
       icon: Users,
       color: 'text-blue-600',
-      bgColor: 'bg-blue-500/10'
+      bgColor: 'bg-blue-500/10',
+      onViewDetails: () => handleViewDetails('members')
     },
     {
       title: 'Expense Analysis',
-      description: 'Monthly operational expenses',
-      type: 'Expenses',
-      period: new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
-      value: `Rs.${analytics.thisMonthExpenses.toLocaleString()}`,
+      description: 'Operational expenses',
+      value: `Rs.${analytics.periodExpenses.toLocaleString()}`,
       change: '+8%',
       icon: Receipt,
       color: 'text-orange-600',
-      bgColor: 'bg-orange-500/10'
+      bgColor: 'bg-orange-500/10',
+      onViewDetails: () => handleViewDetails('expenses')
     },
     {
       title: 'Net Profit',
-      description: 'Revenue minus expenses this month',
-      type: 'Financial',
-      period: new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
-      value: `Rs.${(analytics.thisMonthRevenue - analytics.thisMonthExpenses).toLocaleString()}`,
-      change: analytics.thisMonthRevenue > analytics.thisMonthExpenses ? '+22%' : '-12%',
+      description: 'Revenue minus expenses',
+      value: `Rs.${analytics.periodProfit.toLocaleString()}`,
+      change: analytics.periodProfit > 0 ? '+22%' : '-12%',
       icon: TrendingUp,
       color: 'text-purple-600',
-      bgColor: 'bg-purple-500/10'
+      bgColor: 'bg-purple-500/10',
+      onViewDetails: () => handleViewDetails('profit')
     }
-  ];
-
-  const quickReports = [
-    { name: 'Weekly Summary', icon: Calendar, period: 'Last 7 days', count: reportData.transactions.filter(t => {
-      const weekAgo = new Date();
-      weekAgo.setDate(weekAgo.getDate() - 7);
-      return new Date(t.date) >= weekAgo;
-    }).length },
-    { name: 'Monthly Overview', icon: BarChart3, period: 'Current month', count: analytics.thisMonthMembers + analytics.thisMonthRevenue },
-    { name: 'Quarterly Analysis', icon: PieChart, period: 'Last 3 months', count: reportData.members.length },
-    { name: 'Annual Report', icon: TrendingUp, period: 'Year to date', count: reportData.dashboardStats.totalRevenue || 0 }
   ];
 
   // Loading state
@@ -300,9 +554,9 @@ const Reports = () => {
               <RefreshCw className="h-4 w-4" />
             )}
           </Button>
-          <Button className="premium-button">
+          <Button onClick={handleExportAll} className="premium-button">
             <Download className="mr-2 h-4 w-4" />
-            Export Reports
+            Export All Reports
           </Button>
         </div>
       </div>
@@ -310,24 +564,89 @@ const Reports = () => {
       {/* Period Filter */}
       <Card className="glass-card border-white/40">
         <CardContent className="pt-6">
-          <div className="flex items-center gap-4">
-            <label className="text-sm font-medium text-gray-700">Report Period:</label>
-            <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
-              <SelectTrigger className="w-[200px] bg-white/70 border-white/60">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="current_month">Current Month</SelectItem>
-                <SelectItem value="last_month">Last Month</SelectItem>
-                <SelectItem value="last_3_months">Last 3 Months</SelectItem>
-                <SelectItem value="year_to_date">Year to Date</SelectItem>
-              </SelectContent>
-            </Select>
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+            <div className="flex items-center gap-4">
+              <label className="text-sm font-medium text-gray-700">Report Period:</label>
+              <Select 
+                value={customDateRange ? 'custom' : selectedPeriod} 
+                onValueChange={(value) => {
+                  if (value === 'custom') {
+                    setShowCustomDatePicker(true);
+                  } else {
+                    setSelectedPeriod(value);
+                    setCustomDateRange(null);
+                    setShowCustomDatePicker(false);
+                  }
+                }}
+              >
+                <SelectTrigger className="w-[200px] bg-white/70 border-white/60">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="today">Today</SelectItem>
+                  <SelectItem value="last_7_days">Last 7 Days</SelectItem>
+                  <SelectItem value="last_30_days">Last 30 Days</SelectItem>
+                  <SelectItem value="current_month">Current Month</SelectItem>
+                  <SelectItem value="last_month">Last Month</SelectItem>
+                  <SelectItem value="last_3_months">Last 3 Months</SelectItem>
+                  <SelectItem value="year_to_date">Year to Date</SelectItem>
+                  <SelectItem value="custom">Custom Range</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Custom Date Range Picker */}
+            {showCustomDatePicker && (
+              <div className="flex items-center gap-2">
+                <Input
+                  type="date"
+                  value={customDateRange?.from ? customDateRange.from.toISOString().split('T')[0] : ''}
+                  onChange={(e) => {
+                    const date = new Date(e.target.value);
+                    setCustomDateRange(prev => ({ 
+                      from: date, 
+                      to: prev?.to || date 
+                    }));
+                  }}
+                  className="w-40 bg-white/70 border-white/60"
+                />
+                <span className="text-gray-500">to</span>
+                <Input
+                  type="date"
+                  value={customDateRange?.to ? customDateRange.to.toISOString().split('T')[0] : ''}
+                  onChange={(e) => {
+                    const date = new Date(e.target.value);
+                    setCustomDateRange(prev => ({ 
+                      from: prev?.from || date, 
+                      to: date 
+                    }));
+                  }}
+                  className="w-40 bg-white/70 border-white/60"
+                />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setShowCustomDatePicker(false);
+                    setCustomDateRange(null);
+                    setSelectedPeriod('current_month');
+                  }}
+                  className="bg-white/70 border-white/60"
+                >
+                  ×
+                </Button>
+              </div>
+            )}
+
+            {/* Current Range Display */}
+            <div className="text-sm text-gray-600">
+              Selected: {getCurrentDateRange().from.toLocaleDateString()} - {getCurrentDateRange().to.toLocaleDateString()}
+            </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Report Cards with Real Data */}
+      {/* Report Cards with Functional View Details */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {reportCards.map((report, index) => (
           <Card key={index} className="glass-card border-white/40 hover:shadow-xl transition-all duration-200">
@@ -351,14 +670,20 @@ const Reports = () => {
                     {report.value}
                   </div>
                   <Badge className="mt-2 bg-gray-100 text-gray-700">
-                    {report.period}
+                    {getCurrentDateRange().from.toLocaleDateString()} - {getCurrentDateRange().to.toLocaleDateString()}
                   </Badge>
                 </div>
                 <div className="text-right">
                   <div className={`text-sm font-medium ${report.change.startsWith('+') ? 'text-green-600' : 'text-red-600'}`}>
                     {report.change}
                   </div>
-                  <Button variant="outline" size="sm" className="mt-2">
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="mt-2"
+                    onClick={report.onViewDetails}
+                  >
+                    <Eye className="mr-1 h-3 w-3" />
                     View Details
                   </Button>
                 </div>
@@ -397,94 +722,78 @@ const Reports = () => {
           <CardHeader>
             <CardTitle className="text-gray-800">Revenue by Type</CardTitle>
             <CardDescription className="text-gray-600">
-              Breakdown of revenue sources
+              Breakdown of revenue sources for selected period
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <RechartsPieChart>
-                <Pie
-                  data={pieChartData}
-                  cx="50%"
-                  cy="50%"
-                  outerRadius={80}
-                  fill="#8884d8"
-                  dataKey="value"
-                  label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                >
-                  {pieChartData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip formatter={(value) => `Rs.${value.toLocaleString()}`} />
-              </RechartsPieChart>
-            </ResponsiveContainer>
+            {pieChartData.length > 0 ? (
+              <ResponsiveContainer width="100%" height={300}>
+                <RechartsPieChart>
+                  <Pie
+                    data={pieChartData}
+                    cx="50%"
+                    cy="50%"
+                    outerRadius={80}
+                    fill="#8884d8"
+                    dataKey="value"
+                    label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                  >
+                    {pieChartData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip formatter={(value) => `Rs.${value.toLocaleString()}`} />
+                </RechartsPieChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="flex items-center justify-center h-[300px] text-gray-500">
+                <div className="text-center">
+                  <Receipt className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                  <p>No revenue data for selected period</p>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
 
-      {/* Quick Reports with Real Data */}
-      <Card className="glass-card border-white/40">
-        <CardHeader>
-          <CardTitle className="text-gray-800">Quick Reports</CardTitle>
-          <CardDescription className="text-gray-600">
-            Generate instant reports for different time periods
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {quickReports.map((report, index) => (
-              <Button
-                key={index}
-                variant="outline"
-                className="h-20 glass-card border-white/40 text-gray-700 hover:bg-white/80 hover:scale-105 transition-all duration-200"
-              >
-                <div className="flex flex-col items-center space-y-2">
-                  <report.icon className="h-6 w-6" />
-                  <div className="text-center">
-                    <div className="text-sm font-medium">{report.name}</div>
-                    <div className="text-xs text-gray-500">{report.period}</div>
-                  </div>
-                </div>
-              </Button>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Performance Metrics with Real Data */}
+      {/* Performance Metrics */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card className="glass-card border-white/40">
           <CardHeader>
             <CardTitle className="text-gray-800">Performance Metrics</CardTitle>
             <CardDescription className="text-gray-600">
-              Key performance indicators calculated from your data
+              Key performance indicators for selected period
             </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
               <div className="flex justify-between items-center p-3 bg-white/50 rounded-lg">
-                <span className="text-gray-700">Member Retention Rate</span>
-                <Badge className={`${analytics.memberRetentionRate >= 80 ? 'bg-green-500/20 text-green-700' : 'bg-orange-500/20 text-orange-700'}`}>
-                  {analytics.memberRetentionRate}%
-                </Badge>
-              </div>
-              <div className="flex justify-between items-center p-3 bg-white/50 rounded-lg">
-                <span className="text-gray-700">Average Revenue per Member</span>
+                <span className="text-gray-700">Total Transactions</span>
                 <Badge className="bg-blue-500/20 text-blue-700">
-                  Rs.{analytics.avgRevenuePerMember.toLocaleString()}
+                  {analytics.filteredTransactions.length}
                 </Badge>
               </div>
               <div className="flex justify-between items-center p-3 bg-white/50 rounded-lg">
-                <span className="text-gray-700">Monthly Growth Rate</span>
-                <Badge className={`${analytics.monthlyGrowthRate > 0 ? 'bg-purple-500/20 text-purple-700' : 'bg-red-500/20 text-red-700'}`}>
-                  {analytics.monthlyGrowthRate > 0 ? '+' : ''}{analytics.monthlyGrowthRate}%
+                <span className="text-gray-700">Average Transaction Value</span>
+                <Badge className="bg-green-500/20 text-green-700">
+                  Rs.{analytics.filteredTransactions.length > 0 
+                    ? Math.round(analytics.periodRevenue / analytics.filteredTransactions.length).toLocaleString()
+                    : '0'}
                 </Badge>
               </div>
               <div className="flex justify-between items-center p-3 bg-white/50 rounded-lg">
-                <span className="text-gray-700">Total Active Members</span>
+                <span className="text-gray-700">Profit Margin</span>
+                <Badge className={`${analytics.periodProfit > 0 ? 'bg-purple-500/20 text-purple-700' : 'bg-red-500/20 text-red-700'}`}>
+                  {analytics.periodRevenue > 0 
+                    ? Math.round((analytics.periodProfit / analytics.periodRevenue) * 100) 
+                    : 0}%
+                </Badge>
+              </div>
+              <div className="flex justify-between items-center p-3 bg-white/50 rounded-lg">
+                <span className="text-gray-700">New Members</span>
                 <Badge className="bg-orange-500/20 text-orange-700">
-                  {reportData.dashboardStats.activeMembers || 0}
+                  {analytics.periodMembers}
                 </Badge>
               </div>
             </div>
@@ -495,32 +804,51 @@ const Reports = () => {
           <CardHeader>
             <CardTitle className="text-gray-800">Revenue Breakdown</CardTitle>
             <CardDescription className="text-gray-600">
-              Revenue distribution by transaction type
+              Revenue distribution by transaction type for selected period
             </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {Object.entries(analytics.revenueByType).map(([type, amount], index) => {
-                const percentage = reportData.dashboardStats.totalRevenue > 0 
-                  ? Math.round((parseFloat(amount.toString()) / parseFloat(reportData.dashboardStats.totalRevenue.toString())) * 100)
-                  : 0;
-                
-                return (
-                  <div key={type} className="flex justify-between items-center p-3 bg-white/50 rounded-lg">
-                    <span className="text-gray-700">
-                      {type.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
-                    </span>
-                    <div className="text-right">
-                      <div className="font-semibold text-gray-800">Rs.{amount.toLocaleString()}</div>
-                      <div className="text-sm text-gray-500">{percentage}%</div>
+              {Object.entries(analytics.revenueByType).length > 0 ? (
+                Object.entries(analytics.revenueByType).map(([type, amount]) => {
+                  const numericAmount = Number(amount) || 0;
+                  const numericRevenue = Number(analytics.periodRevenue) || 1;
+                  const percentage = Math.round((numericAmount / numericRevenue) * 100);
+                  
+                  return (
+                    <div key={type} className="flex justify-between items-center p-3 bg-white/50 rounded-lg">
+                      <span className="text-gray-700">
+                        {type.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
+                      </span>
+                      <div className="text-right">
+                        <div className="font-semibold text-gray-800">Rs.{numericAmount.toLocaleString()}</div>
+                        <div className="text-sm text-gray-500">{percentage}%</div>
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })
+              ) : (
+                <div className="text-center py-8 text-gray-500">
+                  <Receipt className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                  <p>No revenue data for selected period</p>
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
       </div>
+
+      {/* Detail Modal */}
+      <ReportDetailModal
+        title={modalTitle}
+        data={modalData}
+        isOpen={detailModalOpen}
+        onClose={() => {
+          setDetailModalOpen(false);
+          setModalTitle('');
+          setModalData([]);
+        }}
+      />
     </div>
   );
 };

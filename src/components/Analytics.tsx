@@ -49,6 +49,13 @@ const Analytics = () => {
   const [error, setError] = useState<string | null>(null);
   const [selectedMetric, setSelectedMetric] = useState('growth');
 
+  // Helper function to safely convert to number
+  const toNumber = (value: any): number => {
+    if (typeof value === 'number') return value;
+    if (typeof value === 'string') return parseFloat(value) || 0;
+    return 0;
+  };
+
   // Fetch all data for analytics
   const fetchAnalyticsData = async (showRefreshLoader = false) => {
     try {
@@ -72,8 +79,8 @@ const Analytics = () => {
       if (membersRes.success && transactionsRes.success && expensesRes.success && dashboardRes.success) {
         setAnalyticsData({
           members: membersRes.members || [],
-          transactions: transactionsRes.transactions || [],
-          expenses: expensesRes.expenses || [],
+          transactions: transactionsRes.transactions?.filter((t: any) => !t.isDeleted) || [],
+          expenses: expensesRes.expenses?.filter((e: any) => !e.isDeleted) || [],
           dashboardStats: dashboardRes.stats || {}
         });
         console.log('Analytics data fetched successfully');
@@ -113,12 +120,12 @@ const Analytics = () => {
       const monthRevenue = transactions.filter(t => {
         const transDate = new Date(t.date);
         return transDate.getMonth() === date.getMonth() && transDate.getFullYear() === date.getFullYear();
-      }).reduce((sum, t) => sum + (parseFloat(t.amount?.toString() || '0')), 0);
+      }).reduce((sum, t) => sum + toNumber(t.amount), 0);
 
       const monthExpenses = expenses.filter(e => {
         const expDate = new Date(e.date);
         return expDate.getMonth() === date.getMonth() && expDate.getFullYear() === date.getFullYear();
-      }).reduce((sum, e) => sum + (parseFloat(e.amount?.toString() || '0')), 0);
+      }).reduce((sum, e) => sum + toNumber(e.amount), 0);
 
       growthData.push({
         month: monthYear,
@@ -136,37 +143,37 @@ const Analytics = () => {
       return acc;
     }, {} as Record<string, number>);
 
-    // Calculate conversion metrics
-    const totalEnquiries = Math.round(dashboardStats.totalMembers * 1.5); // Estimate
-    const conversionRate = totalEnquiries > 0 ? Math.round((dashboardStats.totalMembers / totalEnquiries) * 100) : 0;
+    // Calculate conversion metrics safely
+    const totalMembers = toNumber(dashboardStats.totalMembers);
+    const totalRevenue = toNumber(dashboardStats.totalRevenue);
+    const totalEnquiries = Math.round(totalMembers * 1.5); // Estimate
+    const conversionRate = totalEnquiries > 0 ? Math.round((totalMembers / totalEnquiries) * 100) : 0;
 
     // Calculate member retention
-    const activeMembers = members.filter(m => m.membershipStatus === 'Active').length;
-    const retentionRate = dashboardStats.totalMembers > 0 ? Math.round((activeMembers / dashboardStats.totalMembers) * 100) : 0;
+    const activeMembers = members.filter(m => m.membershipStatus === 'Active' || m.status === 'active').length;
+    const retentionRate = totalMembers > 0 ? Math.round((activeMembers / totalMembers) * 100) : 0;
 
     // Calculate average revenue per member
-    const avgRevenuePerMember = dashboardStats.totalMembers > 0 
-      ? Math.round(dashboardStats.totalRevenue / dashboardStats.totalMembers) 
-      : 0;
+    const avgRevenuePerMember = totalMembers > 0 ? Math.round(totalRevenue / totalMembers) : 0;
 
     // Calculate quarterly growth
     const currentQuarter = Math.floor(new Date().getMonth() / 3);
     const quarterStart = new Date(new Date().getFullYear(), currentQuarter * 3, 1);
     const quarterMembers = members.filter(m => new Date(m.joiningDate) >= quarterStart);
-    const quarterlyGrowth = dashboardStats.totalMembers > 0 
-      ? Math.round((quarterMembers.length / (dashboardStats.totalMembers - quarterMembers.length)) * 100) 
+    const quarterlyGrowth = totalMembers > 0 
+      ? Math.round((quarterMembers.length / Math.max(totalMembers - quarterMembers.length, 1)) * 100) 
       : 0;
 
     // Peak hours analysis (simulate from transaction times)
     const peakHours = transactions.length > 0 ? '6-8 PM' : 'No data';
     
-    // Popular membership analysis
-    const popularPlan = Object.entries(membersByPlan).reduce((a, b) => 
-      membersByPlan[a[0]] > membersByPlan[b[0]] ? a : b
-    )?.[0] || 'Monthly';
+    // Popular membership analysis - fix the reduce operation
+    const popularPlan = Object.entries(membersByPlan).length > 0 
+      ? Object.entries(membersByPlan).reduce((a, b) => a[1] > b[1] ? a : b)[0]
+      : 'Monthly';
 
     // Members at risk (simulate churn prediction)
-    const membersAtRisk = Math.round(dashboardStats.totalMembers * 0.08); // 8% churn estimate
+    const membersAtRisk = Math.round(totalMembers * 0.08); // 8% churn estimate
 
     return {
       growthData,
@@ -210,7 +217,7 @@ const Analytics = () => {
     },
     {
       title: 'Avg. Revenue/Member',
-      value: `Rs.${analytics.avgRevenuePerMember}`,
+      value: `Rs.${analytics.avgRevenuePerMember.toLocaleString()}`,
       description: 'Revenue per member monthly',
       icon: TrendingUp,
       color: 'text-green-600',
@@ -373,11 +380,13 @@ const Analytics = () => {
               <XAxis dataKey="month" />
               <YAxis />
               <Tooltip 
-                formatter={(value, name) => [
-                  name === 'revenue' || name === 'expenses' || name === 'profit' 
-                    ? `Rs.${value.toLocaleString()}` 
-                    : value, 
-                   typeof name === 'string' ? name.charAt(0).toUpperCase() + name.slice(1) : String(name)                ]}
+                formatter={(value: any, name: any) => {
+                  const numValue = Number(value) || 0;
+                  if (name === 'revenue' || name === 'expenses' || name === 'profit') {
+                    return [`Rs.${numValue.toLocaleString()}`, String(name).charAt(0).toUpperCase() + String(name).slice(1)];
+                  }
+                  return [numValue, String(name).charAt(0).toUpperCase() + String(name).slice(1)];
+                }}
               />
               <Area 
                 type="monotone" 
@@ -462,7 +471,7 @@ const Analytics = () => {
                   <div className="font-medium text-gray-800">Avg. Revenue/Member</div>
                   <div className="text-sm text-gray-600">Monthly revenue per member</div>
                 </div>
-                <Badge className="bg-green-500/20 text-green-700">Rs.{analytics.avgRevenuePerMember}</Badge>
+                <Badge className="bg-green-500/20 text-green-700">Rs.{analytics.avgRevenuePerMember.toLocaleString()}</Badge>
               </div>
             </div>
           </CardContent>
@@ -510,7 +519,7 @@ const Analytics = () => {
                   <div className="font-medium text-purple-800">Capacity Planning</div>
                 </div>
                 <div className="text-sm text-purple-700">
-                  {analyticsData.dashboardStats.totalMembers} total members - {analyticsData.dashboardStats.totalMembers > 200 ? 'consider expansion' : 'room for growth'}
+                  {toNumber(analyticsData.dashboardStats.totalMembers)} total members - {toNumber(analyticsData.dashboardStats.totalMembers) > 200 ? 'consider expansion' : 'room for growth'}
                 </div>
               </div>
             </div>
