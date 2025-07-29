@@ -1,5 +1,5 @@
 // Enhanced Google Sheets API Service with better error handling and performance
-const GOOGLE_SHEETS_URL = 'https://script.google.com/macros/s/AKfycbxg4vdav94fxaCMrxOulFf0WppHbinupds9FFtpCbM78bzE0QWmTQ_4_cEG8WURPWcV/exec';
+const GOOGLE_SHEETS_URL = 'https://script.google.com/macros/s/AKfycbzD1GEaL7QUT0EbyBHFrhcPv77tS-lvTZ_ekNN3sPvPfg5q0Y5i4by-Uh0NR4afTT_T/exec';
 
 // ========== ENHANCED JSONP UTILITY WITH CACHING ==========
 class APIClient {
