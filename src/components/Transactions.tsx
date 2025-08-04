@@ -957,8 +957,7 @@ useEffect(() => {
         status: 'completed'
       };
 
-      const response = await enhancedTransactionsAPI.update(selectedTransaction.id, transactionData);
-      
+const response = await enhancedTransactionsAPI.update(selectedTransaction.transactionId, transactionData);      
       if (response.success) {
         // Log activity
         await activityLogsAPI.log(
