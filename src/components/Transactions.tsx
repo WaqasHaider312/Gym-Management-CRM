@@ -426,119 +426,67 @@ const enhancedTransactionsAPI = {
   }
 };
 
-/// ============ BULLETPROOF MEMBER SELECTOR COMPONENT ============
+// ============ SIMPLE WORKING MEMBER SELECTOR ============
 const MemberSelector: React.FC<{
   value: string;
   onChange: (memberName: string, memberPhone: string) => void;
   members: Member[];
 }> = ({ value, onChange, members = [] }) => {
-  const [open, setOpen] = useState(false);
+  
+  // Safe members processing
+  const safeMembersList = React.useMemo(() => {
+    if (!Array.isArray(members)) return [];
+    return members.filter(member => 
+      member && 
+      member.name && 
+      member.phone && 
+      typeof member.name === 'string'
+    );
+  }, [members]);
 
-  // MULTIPLE SAFETY CHECKS
-  console.log('MemberSelector Debug:', {
-    membersReceived: members,
-    membersType: typeof members,
-    isArray: Array.isArray(members),
-    membersLength: members?.length || 0,
-    firstMember: members?.[0] || null
-  });
+  console.log('MemberSelector safeMembersList:', safeMembersList);
 
-  // Early return for invalid data
-  if (!members) {
-    console.log('Members is null/undefined');
-    return <div>Loading members...</div>;
-  }
-
-  if (!Array.isArray(members)) {
-    console.log('Members is not an array:', typeof members);
-    return <div>Loading members...</div>;
-  }
-
-  // Filter out any invalid member objects
-  const validMembers = members.filter(member => {
-    if (!member) return false;
-    if (typeof member !== 'object') return false;
-    if (!member.name) return false;
-    return true;
-  });
-
-  console.log('Valid members after filtering:', validMembers);
+  const handleSelectChange = (selectedName: string) => {
+    if (!selectedName) return;
+    
+    const selectedMember = safeMembersList.find(member => member.name === selectedName);
+    if (selectedMember) {
+      onChange(selectedMember.name, selectedMember.phone);
+    }
+  };
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button
-          variant="outline"
-          role="combobox"
-          aria-expanded={open}
-          className="w-full justify-between bg-white/70 border-white/60 transition-all focus:ring-2 focus:ring-blue-500/50 focus:border-blue-400"
-        >
-          {value ? (
-            <div className="flex items-center">
-              <User className="mr-2 h-4 w-4 text-gray-500" />
-              {validMembers.find((member) => member?.name === value)?.name || value}
-            </div>
-          ) : (
-            <div className="flex items-center text-gray-500">
-              <User className="mr-2 h-4 w-4" />
-              Select member...
-            </div>
-          )}
-          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent className="w-full p-0 bg-white/95 backdrop-blur-md">
-        <Command>
-          <CommandInput placeholder="Search members..." />
-          <CommandEmpty>No member found.</CommandEmpty>
-          <CommandGroup className="max-h-64 overflow-y-auto">
-            {validMembers.length === 0 ? (
-              <div className="p-4 text-center text-gray-500">
-                <User className="h-8 w-8 mx-auto mb-2 text-gray-300" />
-                <p className="text-sm">No valid members available</p>
+    <Select value={value} onValueChange={handleSelectChange}>
+      <SelectTrigger className="w-full bg-white/70 border-white/60 transition-all focus:ring-2 focus:ring-blue-500/50 focus:border-blue-400">
+        <div className="flex items-center">
+          <User className="mr-2 h-4 w-4 text-gray-500" />
+          <SelectValue placeholder="Select member..." />
+        </div>
+      </SelectTrigger>
+      <SelectContent className="bg-white/95 backdrop-blur-md max-h-64">
+        {safeMembersList.length === 0 ? (
+          <div className="p-4 text-center text-gray-500">
+            <User className="h-8 w-8 mx-auto mb-2 text-gray-300" />
+            <p className="text-sm">No members available</p>
+          </div>
+        ) : (
+          safeMembersList.map((member) => (
+            <SelectItem 
+              key={member.id || member.name} 
+              value={member.name}
+              className="cursor-pointer hover:bg-gray-50"
+            >
+              <div className="flex flex-col">
+                <span className="font-medium">{member.name}</span>
+                <span className="text-sm text-gray-500">
+                  {member.phone} • {member.membershipType || 'N/A'}
+                </span>
               </div>
-            ) : (
-              validMembers.map((member, index) => {
-                // Extra safety check for each member
-                if (!member || !member.name) {
-                  console.log('Skipping invalid member at index:', index, member);
-                  return null;
-                }
-
-                return (
-                  <CommandItem
-                    key={member.id || member.name || `member-${index}`}
-                    onSelect={() => {
-                      if (member.name && member.phone) {
-                        onChange(member.name, member.phone);
-                        setOpen(false);
-                      } else {
-                        console.log('Member missing name or phone:', member);
-                      }
-                    }}
-                    className="flex flex-col items-start p-3 cursor-pointer hover:bg-gray-50"
-                  >
-                    <div className="flex items-center w-full">
-                      <CheckIcon
-                        className={`mr-2 h-4 w-4 ${
-                          value === member.name ? "opacity-100" : "opacity-0"
-                        }`}
-                      />
-                      <div className="flex flex-col">
-                        <span className="font-medium">{member.name || 'Unknown'}</span>
-                        <span className="text-sm text-gray-500">
-                          {member.phone || 'No phone'} • {member.membershipType || 'No type'}
-                        </span>
-                      </div>
-                    </div>
-                  </CommandItem>
-                );
-              })
-            )}
-          </CommandGroup>
-        </Command>
-      </PopoverContent>
-    </Popover>
+            </SelectItem>
+          ))
+        )}
+      </SelectContent>
+    </Select>
   );
 };
 
@@ -824,16 +772,31 @@ const safeMembers = Array.isArray(members) ? members : [];
     },
   });
 
-  // Fetch data functions
   const fetchMembers = async () => {
   try {
     console.log('Fetching members...');
     const response = await membersAPI.getAll();
-    console.log('Members API response:', response); // Add this
+    console.log('Members API response:', response);
     
     if (response.success) {
-      console.log('Members data received:', response.members); // Add this
-      console.log('First member structure:', response.members?.[0]); // Add this
+      console.log('Members data received:', response.members);
+      console.log('First member structure:', response.members?.[0]);
+      
+      // 🔍 CRITICAL DEBUG - Add this
+      console.log('=== DETAILED MEMBER ANALYSIS ===');
+      console.log('Response type:', typeof response);
+      console.log('Response.members type:', typeof response.members);
+      console.log('Is response.members an array?', Array.isArray(response.members));
+      console.log('Response.members length:', response.members?.length);
+      
+      if (response.members && response.members.length > 0) {
+        response.members.forEach((member, index) => {
+          console.log(`Member ${index}:`, member);
+          console.log(`Member ${index} has name:`, 'name' in member);
+          console.log(`Member ${index} has phone:`, 'phone' in member);
+        });
+      }
+      
       setMembers(response.members || []);
     } else {
       console.error('Failed to fetch members:', response.error);
@@ -872,10 +835,10 @@ const safeMembers = Array.isArray(members) ? members : [];
   };
 
   // Load data on component mount
-  useEffect(() => {
-    fetchMembers();
-    fetchTransactions();
-  }, []);
+useEffect(() => {
+  fetchMembers();
+  fetchTransactions();
+}, []);
 
   // Handle member selection in form
   const handleMemberSelect = (memberName: string, memberPhone: string) => {
