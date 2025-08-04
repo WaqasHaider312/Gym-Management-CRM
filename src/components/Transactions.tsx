@@ -431,8 +431,13 @@ const MemberSelector: React.FC<{
   value: string;
   onChange: (memberName: string, memberPhone: string) => void;
   members: Member[];
-}> = ({ value, onChange, members }) => {
+}> = ({ value, onChange, members = [] }) => { // Default to empty array
   const [open, setOpen] = useState(false);
+
+       if (!members || !Array.isArray(members)) {
+       return <div>Loading members...</div>;
+       }
+
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
