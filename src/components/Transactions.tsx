@@ -426,18 +426,43 @@ const enhancedTransactionsAPI = {
   }
 };
 
-// ============ MEMBER SELECTOR COMPONENT ============
+/// ============ BULLETPROOF MEMBER SELECTOR COMPONENT ============
 const MemberSelector: React.FC<{
   value: string;
   onChange: (memberName: string, memberPhone: string) => void;
   members: Member[];
-}> = ({ value, onChange, members = [] }) => { // Default to empty array
+}> = ({ value, onChange, members = [] }) => {
   const [open, setOpen] = useState(false);
 
-       if (!members || !Array.isArray(members)) {
-       return <div>Loading members...</div>;
-       }
+  // MULTIPLE SAFETY CHECKS
+  console.log('MemberSelector Debug:', {
+    membersReceived: members,
+    membersType: typeof members,
+    isArray: Array.isArray(members),
+    membersLength: members?.length || 0,
+    firstMember: members?.[0] || null
+  });
 
+  // Early return for invalid data
+  if (!members) {
+    console.log('Members is null/undefined');
+    return <div>Loading members...</div>;
+  }
+
+  if (!Array.isArray(members)) {
+    console.log('Members is not an array:', typeof members);
+    return <div>Loading members...</div>;
+  }
+
+  // Filter out any invalid member objects
+  const validMembers = members.filter(member => {
+    if (!member) return false;
+    if (typeof member !== 'object') return false;
+    if (!member.name) return false;
+    return true;
+  });
+
+  console.log('Valid members after filtering:', validMembers);
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -451,7 +476,7 @@ const MemberSelector: React.FC<{
           {value ? (
             <div className="flex items-center">
               <User className="mr-2 h-4 w-4 text-gray-500" />
-              {members.find((member) => member.name === value)?.name || value}
+              {validMembers.find((member) => member?.name === value)?.name || value}
             </div>
           ) : (
             <div className="flex items-center text-gray-500">
@@ -467,32 +492,49 @@ const MemberSelector: React.FC<{
           <CommandInput placeholder="Search members..." />
           <CommandEmpty>No member found.</CommandEmpty>
           <CommandGroup className="max-h-64 overflow-y-auto">
-            {(members || []).map((member) => member && (
-            <CommandItem
-            key={member.id || member.name} // Fallback key in case id is missing
-            onSelect={() => {
-            if (member.name && member.phone) { // Check both exist
-            onChange(member.name, member.phone);
-            setOpen(false);
-           }
-          }}
-            className="flex flex-col items-start p-3 cursor-pointer hover:bg-gray-50"
-            >
-                <div className="flex items-center w-full">
-                  <CheckIcon
-                    className={`mr-2 h-4 w-4 ${
-                      value === member.name ? "opacity-100" : "opacity-0"
-                    }`}
-                  />
-                  <div className="flex flex-col">
-                    <span className="font-medium">{member.name}</span>
-                    <span className="text-sm text-gray-500">
-                      {member.phone} • {member.membershipType}
-                    </span>
-                  </div>
-                </div>
-              </CommandItem>
-            ))}
+            {validMembers.length === 0 ? (
+              <div className="p-4 text-center text-gray-500">
+                <User className="h-8 w-8 mx-auto mb-2 text-gray-300" />
+                <p className="text-sm">No valid members available</p>
+              </div>
+            ) : (
+              validMembers.map((member, index) => {
+                // Extra safety check for each member
+                if (!member || !member.name) {
+                  console.log('Skipping invalid member at index:', index, member);
+                  return null;
+                }
+
+                return (
+                  <CommandItem
+                    key={member.id || member.name || `member-${index}`}
+                    onSelect={() => {
+                      if (member.name && member.phone) {
+                        onChange(member.name, member.phone);
+                        setOpen(false);
+                      } else {
+                        console.log('Member missing name or phone:', member);
+                      }
+                    }}
+                    className="flex flex-col items-start p-3 cursor-pointer hover:bg-gray-50"
+                  >
+                    <div className="flex items-center w-full">
+                      <CheckIcon
+                        className={`mr-2 h-4 w-4 ${
+                          value === member.name ? "opacity-100" : "opacity-0"
+                        }`}
+                      />
+                      <div className="flex flex-col">
+                        <span className="font-medium">{member.name || 'Unknown'}</span>
+                        <span className="text-sm text-gray-500">
+                          {member.phone || 'No phone'} • {member.membershipType || 'No type'}
+                        </span>
+                      </div>
+                    </div>
+                  </CommandItem>
+                );
+              })
+            )}
           </CommandGroup>
         </Command>
       </PopoverContent>
@@ -741,6 +783,8 @@ const TransactionsComponent = () => {
   // State management
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
+  // Emergency fallback - ensure members is always an array
+const safeMembers = Array.isArray(members) ? members : [];
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -1645,7 +1689,7 @@ const TransactionsComponent = () => {
                         <MemberSelector
                           value={field.value}
                           onChange={handleMemberSelect}
-                          members={members}
+                          members={safeMembers}
                         />
                       </FormControl>
                       <FormMessage />
@@ -1880,7 +1924,7 @@ const TransactionsComponent = () => {
                         <MemberSelector
                           value={field.value}
                           onChange={handleMemberSelect}
-                          members={members}
+                          members={safeMembers}
                         />
                       </FormControl>
                       <FormMessage />
