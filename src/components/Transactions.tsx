@@ -467,15 +467,17 @@ const MemberSelector: React.FC<{
           <CommandInput placeholder="Search members..." />
           <CommandEmpty>No member found.</CommandEmpty>
           <CommandGroup className="max-h-64 overflow-y-auto">
-            {members.map((member) => (
-              <CommandItem
-                key={member.id}
-                onSelect={() => {
-                  onChange(member.name, member.phone);
-                  setOpen(false);
-                }}
-                className="flex flex-col items-start p-3 cursor-pointer hover:bg-gray-50"
-              >
+            {(members || []).map((member) => member && (
+            <CommandItem
+            key={member.id || member.name} // Fallback key in case id is missing
+            onSelect={() => {
+            if (member.name && member.phone) { // Check both exist
+            onChange(member.name, member.phone);
+            setOpen(false);
+           }
+          }}
+            className="flex flex-col items-start p-3 cursor-pointer hover:bg-gray-50"
+            >
                 <div className="flex items-center w-full">
                   <CheckIcon
                     className={`mr-2 h-4 w-4 ${
@@ -780,18 +782,22 @@ const TransactionsComponent = () => {
 
   // Fetch data functions
   const fetchMembers = async () => {
-    try {
-      console.log('Fetching members...');
-      const response = await membersAPI.getAll();
-      if (response.success) {
-        setMembers(response.members || []);
-      } else {
-        console.error('Failed to fetch members:', response.error);
-      }
-    } catch (error) {
-      console.error('Error fetching members:', error);
+  try {
+    console.log('Fetching members...');
+    const response = await membersAPI.getAll();
+    console.log('Members API response:', response); // Add this
+    
+    if (response.success) {
+      console.log('Members data received:', response.members); // Add this
+      console.log('First member structure:', response.members?.[0]); // Add this
+      setMembers(response.members || []);
+    } else {
+      console.error('Failed to fetch members:', response.error);
     }
-  };
+  } catch (error) {
+    console.error('Error fetching members:', error);
+  }
+};
 
   const fetchTransactions = async (showRefreshLoader = false) => {
     try {
